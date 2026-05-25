@@ -1,0 +1,31 @@
+# SSIS runtime DLLs — copied from the local GAC by setup-ssis-refs.ps1, not redistributable
+lib/ssis/*.dll
+
+# Build output
+bin/
+obj/
+.vs/
+*.user
+
+# Generated lineage reports
+lineage-output*/
+test-output/
+
+# Local SSIS sample projects / packages (users supply their own)
+test-assets/**/*.dtproj
+test-assets/**/*.dtsx
+test-assets/**/*.conmgr
+test-assets/**/*.params
+*.dtsx
+*.dtproj
+*.conmgr
+
+# Internal helper scripts (not part of the shipped utility)
+tools/
+
+# Editor / local tooling
+.vscode/
+.claude/
+
+# Dev-only graph test harness
+src/SsisLineage.UI/wwwroot/_graphtest.html

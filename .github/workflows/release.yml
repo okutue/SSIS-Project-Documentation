@@ -1,0 +1,79 @@
+# Requires a self-hosted runner with SSIS 16.x installed (GAC assemblies).
+# GitHub-hosted runners do not have SSIS and cannot compile SsisLineage.Core.
+#
+# To register your machine as a self-hosted runner:
+#   GitHub repo → Settings → Actions → Runners → New self-hosted runner
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Version tag (e.g. v1.0.0)'
+        required: true
+
+jobs:
+  build:
+    runs-on: [self-hosted, windows, x64]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set version
+        id: version
+        shell: pwsh
+        run: |
+          $tag = if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+            "${{ github.event.inputs.tag }}"
+          } else {
+            "${{ github.ref_name }}"
+          }
+          echo "TAG=$tag" >> $env:GITHUB_OUTPUT
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Publish desktop app
+        shell: pwsh
+        run: |
+          dotnet publish src/SsisLineage.Desktop `
+            -c Release -r win-x64 --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:Version=${{ steps.version.outputs.TAG }} `
+            -o ./publish
+
+      - name: Zip artifact
+        shell: pwsh
+        run: |
+          Compress-Archive -Path ./publish/SsisLineage.Desktop.exe `
+            -DestinationPath ./SsisLineage-${{ steps.version.outputs.TAG }}-win-x64.zip
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.TAG }}
+          name: SSIS Lineage Utility ${{ steps.version.outputs.TAG }}
+          body: |
+            ## SSIS Lineage Utility ${{ steps.version.outputs.TAG }}
+
+            ### Requirements
+            - Windows 10/11 x64
+            - Microsoft SQL Server Integration Services 16.x installed (SSIS runtime assemblies)
+
+            ### Install
+            Download `SsisLineage-${{ steps.version.outputs.TAG }}-win-x64.zip`, extract, and run `SsisLineage.Desktop.exe`.
+            No .NET SDK required — self-contained binary.
+
+            See [CHANGELOG.md](https://github.com/okutue/SSIS-Project-Documentation/blob/main/CHANGELOG.md) for what's new.
+          files: ./SsisLineage-${{ steps.version.outputs.TAG }}-win-x64.zip
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,246 @@
+@page "/lineage-trace"
+@using System.Linq
+@using SsisLineage.Core
+@using SsisLineage.Core.Models
+@using SsisLineage.UI.Services
+@inject LineageService LineageService
+@inject IJSRuntime JS
+@inject NavigationManager NavigationManager
+@implements IDisposable
+
+<PageTitle>Lineage Search</PageTitle>
+
+<MudStack Spacing="4" Class="pa-4">
+
+    <!-- Header -->
+    <div class="d-flex justify-space-between align-center flex-wrap gap-4">
+        <div>
+            <MudText Typo="Typo.overline" Color="Color.Primary">Lineage Search</MudText>
+            <MudText Typo="Typo.h4">Trace a Column or Table</MudText>
+        </div>
+        @if (_trace != null && _trace.Steps.Count > 0)
+        {
+            <div class="d-flex gap-2 flex-wrap">
+                <MudButton OnClick="ExportCsv" Variant="Variant.Outlined" Color="Color.Success"
+                           StartIcon="@Icons.Material.Filled.Download">Export CSV</MudButton>
+                <MudTooltip Text="Export the focused diagram as a PNG image" Placement="Placement.Bottom">
+                    <MudButton OnClick="ExportPng" Variant="Variant.Outlined"
+                               StartIcon="@Icons.Material.Filled.Image">Export PNG</MudButton>
+                </MudTooltip>
+            </div>
+        }
+    </div>
+
+    @if (reportData == null)
+    {
+        <MudPaper Outlined="true" Elevation="0" Class="pa-8 d-flex flex-column align-center justify-center">
+            <MudIcon Icon="@Icons.Material.Filled.TravelExplore" Size="Size.Large" Color="Color.Primary" />
+            <MudText Typo="Typo.subtitle1" Class="mt-2">No report loaded</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Align="Align.Center" Class="mb-3">
+                Generate a lineage report first, then come back to search and trace columns or tables.
+            </MudText>
+            <MudButton OnClick="@(() => NavigationManager.NavigateTo("/"))" Variant="Variant.Filled" Color="Color.Primary">
+                Go to Lineage Discovery
+            </MudButton>
+        </MudPaper>
+    }
+    else
+    {
+        <!-- Search controls -->
+        <MudPaper Class="pa-4" Elevation="2">
+            <div class="d-flex flex-wrap gap-4 align-center">
+                <MudToggleGroup T="SearchScope" @bind-Value="_scope" @bind-Value:after="OnScopeChanged"
+                                Size="Size.Small" Color="Color.Primary" CheckMark="false">
+                    <MudToggleItem Value="SearchScope.Column">Column</MudToggleItem>
+                    <MudToggleItem Value="SearchScope.Table">Table</MudToggleItem>
+                </MudToggleGroup>
+
+                <MudAutocomplete T="SearchHit" @bind-Value="_selected" @bind-Value:after="OnHitSelected"
+                                 Label="@($"Search {_scope.ToString().ToLower()}")"
+                                 Placeholder="Type a name to search…"
+                                 SearchFunc="SearchAsync" ToStringFunc="@(h => h?.Display ?? "")"
+                                 Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"
+                                 MaxItems="50" ResetValueOnEmptyText="true" CoerceText="true"
+                                 Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                                 Style="flex:1 1 320px;min-width:280px" />
+            </div>
+
+            @if (_trace != null)
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-3">
+                    @if (_trace.Steps.Count > 0)
+                    {
+                        <span>Traced <strong>@_trace.FocusLabel</strong> — @_trace.Steps.Count column mapping(s) spanning @_trace.TableCount table(s), from ultimate source(s) to final target(s).</span>
+                    }
+                    else
+                    {
+                        <span>No lineage edges found for <strong>@_trace.FocusLabel</strong>. It may be an isolated node with no column-level mappings.</span>
+                    }
+                </MudText>
+            }
+        </MudPaper>
+
+        @if (_trace != null && _trace.Steps.Count > 0)
+        {
+            <!-- Step table -->
+            <MudPaper Class="pa-2" Elevation="2">
+                <MudDataGrid T="TraceStep" Items="_trace.Steps" Dense="true" Hover="true" Striped="true"
+                             FixedHeader="true" Height="420px" SortMode="SortMode.None">
+                    <Columns>
+                        @* Step is a stage grouping (rows of the same source→target stage share
+                           a number, increasing source→target) — not a serial row counter. *@
+                        <TemplateColumn Title="Step">
+                            <CellTemplate>@(context.Item.Rank + 1)</CellTemplate>
+                        </TemplateColumn>
+                        <PropertyColumn Property="x => x.SourceLabel" Title="Source" />
+                        <TemplateColumn Title="Operation">
+                            <CellTemplate>@FormatOp(context.Item.Operation)</CellTemplate>
+                        </TemplateColumn>
+                        <TemplateColumn Title="Rename">
+                            <CellTemplate>
+                                @if (context.Item.IsRename)
+                                {
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Outlined">renamed</MudChip>
+                                }
+                            </CellTemplate>
+                        </TemplateColumn>
+                        <PropertyColumn Property="x => x.Expression" Title="Expression" />
+                        <PropertyColumn Property="x => x.FilterConditions" Title="Filter" />
+                        <PropertyColumn Property="x => x.TargetLabel" Title="Target" />
+                        <PropertyColumn Property="x => x.PackageName" Title="Package" />
+                        <PropertyColumn Property="x => x.TaskName" Title="Task" />
+                        <PropertyColumn Property="x => x.ProcedureName" Title="Procedure" />
+                        <PropertyColumn Property="x => x.JoinDetails" Title="Join Condition" />
+                    </Columns>
+                </MudDataGrid>
+            </MudPaper>
+
+            <!-- Focused diagram -->
+            <MudPaper Class="pa-4" Elevation="2">
+                <div class="d-flex justify-space-between align-center mb-3 flex-wrap gap-3">
+                    <div>
+                        <MudText Typo="Typo.h6">Path Diagram</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                            Click a column to highlight its sub-path · scroll to zoom · drag to pan
+                        </MudText>
+                    </div>
+                    <div class="d-flex gap-2 flex-wrap align-center">
+                        <MudButton OnClick="ZoomToFit" Variant="Variant.Outlined" Size="Size.Small"
+                                   StartIcon="@Icons.Material.Filled.CenterFocusStrong">Fit</MudButton>
+                        <MudTooltip Text="Toggle fullscreen" Placement="Placement.Bottom">
+                            <MudIconButton Icon="@Icons.Material.Filled.Fullscreen" Size="Size.Small"
+                                           Variant="Variant.Outlined" OnClick="ToggleDiagramFullscreen" />
+                        </MudTooltip>
+                    </div>
+                </div>
+                <div class="diagram-container" id="trace-diagram-container" @key="renderToken">
+                    <div id="trace-diagram" class="graph-view"></div>
+                    <button class="fs-exit-overlay" @onclick="ToggleDiagramFullscreen" title="Exit fullscreen">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                            <path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/>
+                        </svg>
+                    </button>
+                </div>
+            </MudPaper>
+        }
+    }
+</MudStack>
+
+@code {
+    [CascadingParameter(Name = "IsDarkMode")] private bool IsDarkMode { get; set; }
+
+    private LineageReportData? reportData;
+    private LineageTracer? _tracer;
+    private SearchScope _scope = SearchScope.Column;
+    private SearchHit? _selected;
+    private TraceResult? _trace;
+
+    private int renderToken = 0;
+    private int _lastRenderedToken = -1;
+    private bool _lastRenderedDark = false;
+
+    protected override void OnInitialized()
+    {
+        reportData = LineageService.GetPublishedReport();
+        if (reportData != null)
+            _tracer = new LineageTracer(reportData.Graph);
+    }
+
+    private Task<IEnumerable<SearchHit>> SearchAsync(string? value, CancellationToken token)
+    {
+        if (_tracer == null) return Task.FromResult(Enumerable.Empty<SearchHit>());
+        return Task.FromResult(_tracer.Search(value, _scope));
+    }
+
+    private void OnScopeChanged()
+    {
+        // Switching scope invalidates the current selection/trace.
+        _selected = null;
+        _trace = null;
+    }
+
+    private void OnHitSelected()
+    {
+        if (_tracer == null || _selected == null)
+        {
+            _trace = null;
+            return;
+        }
+        _trace = _tracer.Trace(_selected);
+        renderToken++;
+    }
+
+    private async Task ExportCsv()
+    {
+        if (_trace == null) return;
+        var csv = OutputGenerator.GenerateTraceCsv(_trace);
+        await DownloadFile("lineage-trace.csv", csv);
+    }
+
+    private async Task ExportPng()
+    {
+        await JS.InvokeVoidAsync("cyLineage.exportPng", "ssis-lineage-trace.png");
+    }
+
+    private async Task ZoomToFit() => await JS.InvokeVoidAsync("cyLineage.fit");
+
+    private async Task ToggleDiagramFullscreen() =>
+        await JS.InvokeVoidAsync("cyLineage.toggleFullscreen", "trace-diagram-container");
+
+    private async Task DownloadFile(string fileName, string content)
+    {
+        if (string.IsNullOrEmpty(content)) return;
+        var bytes = System.Text.Encoding.UTF8.GetBytes(content);
+        var base64 = Convert.ToBase64String(bytes);
+        await JS.InvokeVoidAsync("downloadFileFromBase64", fileName, base64);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        try
+        {
+            if (_trace != null && _trace.Steps.Count > 0 &&
+                (renderToken != _lastRenderedToken || IsDarkMode != _lastRenderedDark))
+            {
+                _lastRenderedToken = renderToken;
+                _lastRenderedDark = IsDarkMode;
+                await Task.Delay(200); // allow DOM reconciliation
+                await JS.InvokeVoidAsync("cyLineage.render", "trace-diagram",
+                    _trace.SubGraph, new { }, null, IsDarkMode, "column");
+            }
+        }
+        catch (Exception) { /* JS console captures details */ }
+    }
+
+    // Strip the SQL_PROC_ prefix and humanise underscores for the operation cell.
+    private static string FormatOp(string op)
+    {
+        if (string.IsNullOrEmpty(op)) return "";
+        var s = op.StartsWith("SQL_PROC_", StringComparison.OrdinalIgnoreCase)
+            ? op["SQL_PROC_".Length..]
+            : op;
+        return s.Replace('_', ' ');
+    }
+
+    public void Dispose() { }
+}

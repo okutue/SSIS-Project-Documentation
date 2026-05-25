@@ -1,0 +1,919 @@
+@page "/"
+@using System.IO
+@using System.Linq
+@using System.Text
+@using SsisLineage.Core
+@using SsisLineage.Core.Models
+@using SsisLineage.UI.Services
+@inject LineageService LineageService
+@inject IJSRuntime JS
+@inject NavigationManager NavigationManager
+@inject IFolderPicker FolderPicker
+@inject RecentProjectsService RecentProjects
+@implements IDisposable
+
+<PageTitle>SSIS Lineage Report</PageTitle>
+
+<MudStack Spacing="4" Class="pa-4">
+
+    <!-- Header -->
+    <div class="d-flex justify-space-between align-center flex-wrap gap-4">
+        <div>
+            <MudText Typo="Typo.overline" Color="Color.Primary">Lineage Report</MudText>
+            <MudText Typo="Typo.h4">SSIS Data Flow Visualization</MudText>
+        </div>
+        <div class="d-flex align-center gap-3 flex-wrap">
+            <MudTooltip Text="Runs fully local — no cloud, no telemetry, no open ports. Your SSIS projects never leave your machine."
+                        Placement="Placement.Bottom" Arrow="true">
+                <MudChip T="string" Variant="Variant.Outlined" Color="Color.Success"
+                         Icon="@Icons.Material.Outlined.Lock" Size="Size.Small">
+                    100% Offline
+                </MudChip>
+            </MudTooltip>
+            <MudTooltip Text="View source on GitHub" Placement="Placement.Bottom" Arrow="true">
+                <MudIconButton Icon="@Icons.Custom.Brands.GitHub"
+                               Href="https://github.com/okutue/SSIS-Project-Documentation"
+                               Target="_blank"
+                               Color="Color.Inherit"
+                               Size="Size.Medium"
+                               aria-label="GitHub repository" />
+            </MudTooltip>
+            <MudChip T="string" Variant="Variant.Filled"
+                     Color="@(reportData is null ? Color.Default : Color.Success)"
+                     Icon="@(reportData is null ? Icons.Material.Filled.HourglassEmpty : Icons.Material.Filled.CheckCircle)">
+                @(reportData is null ? "No report generated" : "Report ready")
+            </MudChip>
+        </div>
+    </div>
+
+    <MudGrid>
+        <!-- Controls (collapsible) -->
+        <MudItem xs="12" md="4">
+            <MudPaper Class="pa-4" Elevation="2" Style="height:100%">
+                <div class="d-flex justify-space-between align-center @(_controlsExpanded ? "mb-3" : "")">
+                    <div style="min-width:0;flex:1">
+                        <MudText Typo="Typo.h6">Generate Report</MudText>
+                        @if (!_controlsExpanded && reportData != null)
+                        {
+                            <MudText Typo="Typo.caption" Color="Color.Secondary"
+                                     Style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block">
+                                @System.IO.Path.GetFileName(startPackage) · @System.IO.Path.GetFileName(projectPath.TrimEnd('\\', '/'))
+                            </MudText>
+                        }
+                    </div>
+                    <div class="d-flex align-center gap-1">
+                        @if (_recents.Count > 0 && _controlsExpanded)
+                        {
+                            <MudMenu Icon="@Icons.Material.Filled.History" Size="Size.Small" Dense="true"
+                                     AriaLabel="Recent projects" TransformOrigin="Origin.TopRight" AnchorOrigin="Origin.BottomRight">
+                                @foreach (var r in _recents)
+                                {
+                                    <MudMenuItem OnClick="@(() => UseRecent(r))">
+                                        <MudText Typo="Typo.body2">@System.IO.Path.GetFileName(r.ProjectPath.TrimEnd('\\', '/'))</MudText>
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">@r.StartPackage</MudText>
+                                    </MudMenuItem>
+                                }
+                            </MudMenu>
+                        }
+                        <MudTooltip Text="@(_controlsExpanded ? "Collapse panel" : "Expand to change settings")" Placement="Placement.Left">
+                            <MudIconButton Icon="@(_controlsExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
+                                           Size="Size.Small" OnClick="@(() => _controlsExpanded = !_controlsExpanded)" />
+                        </MudTooltip>
+                    </div>
+                </div>
+
+                @if (_controlsExpanded)
+                {
+                    <MudTextField @bind-Value="projectPath" Label="Project path" Placeholder="C:\Project\SSIS"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-1"
+                                  Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Folder" />
+                    @if (FolderPicker.IsSupported)
+                    {
+                        <MudButton OnClick="BrowseFolder" Variant="Variant.Text" Size="Size.Small"
+                                   StartIcon="@Icons.Material.Filled.FolderOpen" Class="mb-2">Browse…</MudButton>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mb-2">
+                            Type or paste the full folder path. (The browser app can't open a native folder picker — use the desktop app for Browse, or pick from recent projects.)
+                        </MudText>
+                    }
+
+                    <MudAutocomplete T="string" @bind-Value="startPackage" Label="Start package"
+                                     Placeholder="Master.dtsx" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-2"
+                                     SearchFunc="SearchPackages" CoerceValue="true" Clearable="true"
+                                     MaxItems="null"
+                                     Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Description" />
+
+                    <MudCheckBox @bind-Value="includeSqlProcedures" Color="Color.Primary" Dense="true"
+                                 Label="Also enrich data-flow SQL procedures" />
+
+                    @if (includeSqlProcedures)
+                    {
+                        <MudTextField @bind-Value="sqlConnectionString" Label="SQL connection string override (optional)"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense" Class="mt-2" Lines="2" />
+                    }
+
+                    <MudButton OnClick="GenerateReportAsync" Disabled="isGenerating" Variant="Variant.Filled"
+                               Color="Color.Primary" FullWidth="true" Class="mt-4"
+                               StartIcon="@Icons.Material.Filled.PlayArrow">
+                        @(isGenerating ? "Generating..." : "Generate Report")
+                    </MudButton>
+
+                    @if (isGenerating)
+                    {
+                        <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mt-3" />
+                    }
+
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <MudAlert Severity="Severity.Error" Variant="Variant.Filled" Class="mt-3" Dense="true">@errorMessage</MudAlert>
+                    }
+                }
+            </MudPaper>
+        </MudItem>
+
+        <!-- Summary -->
+        <MudItem xs="12" md="8">
+            @if (reportData != null)
+            {
+                <MudPaper Class="pa-4" Elevation="2" Style="height:100%">
+                    <div class="d-flex justify-space-between align-center mb-3 flex-wrap gap-2">
+                        <MudText Typo="Typo.h6">Summary</MudText>
+                        <div class="d-flex gap-2 flex-wrap">
+                            <MudButton OnClick="ExportLineageCsv" Variant="Variant.Outlined" Size="Size.Small"
+                                       StartIcon="@Icons.Material.Filled.Download">CSV</MudButton>
+                            <MudButton OnClick='() => DownloadFile("lineage.json", reportData.JsonExport)' Variant="Variant.Outlined" Size="Size.Small">JSON</MudButton>
+                            <MudButton OnClick='() => DownloadFile("lineage.yaml", reportData.YamlExport)' Variant="Variant.Outlined" Size="Size.Small">YAML</MudButton>
+                            <MudButton OnClick='() => DownloadFile("lineage.cypher", reportData.CypherExport)' Variant="Variant.Outlined" Size="Size.Small">Cypher</MudButton>
+                            <MudButton OnClick='() => DownloadFile("lineage.md", reportData.MarkdownExport)' Variant="Variant.Outlined" Size="Size.Small">Markdown</MudButton>
+                        </div>
+                    </div>
+
+                    <MudGrid Spacing="3">
+                        @foreach (var m in Metrics)
+                        {
+                            <MudItem xs="6" sm="4">
+                                <MudPaper Class="pa-3 metric-card" Elevation="1" Style="cursor:pointer"
+                                          @onclick="@(() => NavigateToDetailedSection(m.Section))">
+                                    <div class="d-flex align-center gap-3">
+                                        <MudIcon Icon="@m.Icon" Color="Color.Primary" Size="Size.Medium" />
+                                        <div>
+                                            <MudText Typo="Typo.h5">@reportData.Summary[m.Key]</MudText>
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">@m.Label</MudText>
+                                        </div>
+                                    </div>
+                                </MudPaper>
+                            </MudItem>
+                        }
+                    </MudGrid>
+
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-3 d-block">
+                        Generated: @reportData.Summary["generatedAt"]
+                    </MudText>
+                </MudPaper>
+            }
+            else
+            {
+                <MudPaper Outlined="true" Elevation="0" Class="pa-8 d-flex flex-column align-center justify-center" Style="height:100%">
+                    <MudIcon Icon="@Icons.Material.Filled.AccountTree" Size="Size.Large" Color="Color.Primary" />
+                    <MudText Typo="Typo.subtitle1" Class="mt-2">No report yet</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary" Align="Align.Center">
+                        Enter a project path and start package, then Generate Report.
+                    </MudText>
+                </MudPaper>
+            }
+        </MudItem>
+    </MudGrid>
+
+    @if (reportData != null && reportData.Graph.Warnings.Count > 0)
+    {
+        <MudExpansionPanels Elevation="1">
+            <MudExpansionPanel Icon="@Icons.Material.Filled.Warning"
+                               Text="@($"Scan warnings ({reportData.Graph.Warnings.Count})")">
+                <MudList T="string" Dense="true">
+                    @foreach (var warning in reportData.Graph.Warnings.Take(50))
+                    {
+                        <MudListItem T="string" Icon="@Icons.Material.Filled.ChevronRight">@warning</MudListItem>
+                    }
+                </MudList>
+                @if (reportData.Graph.Warnings.Count > 50)
+                {
+                    <MudText Typo="Typo.caption" Class="pa-2">Showing first 50. See detailed report for the full list.</MudText>
+                }
+            </MudExpansionPanel>
+        </MudExpansionPanels>
+    }
+
+    <!-- Diagram -->
+    @if (reportData != null)
+    {
+        <MudPaper id="diagram-section" Class="pa-4" Elevation="2">
+            <div class="d-flex justify-space-between align-center mb-3 flex-wrap gap-3">
+                <div>
+                    <MudText Typo="Typo.h6">Data Flow Diagram</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                        @(_graphMode == "column"
+                            ? "Click a column to trace its full lineage path · scroll to zoom · drag to pan"
+                            : "Click any node or edge for details · scroll to zoom · drag to pan")
+                    </MudText>
+                </div>
+                <div class="d-flex gap-2 flex-wrap align-center">
+                    <MudToggleGroup T="string" @bind-Value="_graphMode" @bind-Value:after="RenderGraphAsync"
+                                    Size="Size.Small" Color="Color.Primary" CheckMark="false">
+                        <MudToggleItem Value="@("object")">Objects</MudToggleItem>
+                        <MudToggleItem Value="@("column")">Columns</MudToggleItem>
+                    </MudToggleGroup>
+                    @if (_graphMode == "object")
+                    {
+                        <MudSelect T="string" @bind-Value="graphFilterPackageId" @bind-Value:after="ApplyGraphFilterAsync"
+                                   Label="Package" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined" Style="min-width:150px">
+                            <MudSelectItem T="string" Value="@("")">All packages</MudSelectItem>
+                            @foreach (var pkg in reportData.Graph.Packages)
+                            {
+                                <MudSelectItem T="string" Value="@pkg.Id">@pkg.Name</MudSelectItem>
+                            }
+                        </MudSelect>
+                        <MudSelect T="string" @bind-Value="graphFilterTaskId" @bind-Value:after="ApplyGraphFilterAsync"
+                                   Label="Task" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined" Style="min-width:150px">
+                            <MudSelectItem T="string" Value="@("")">All tasks</MudSelectItem>
+                            @foreach (var task in FilteredTasksForGraph())
+                            {
+                                <MudSelectItem T="string" Value="@task.Id">@task.Name</MudSelectItem>
+                            }
+                        </MudSelect>
+                        <MudButton OnClick="ClearGraphFilters" Variant="Variant.Outlined" Size="Size.Small"
+                                   StartIcon="@Icons.Material.Filled.FilterAltOff">Clear</MudButton>
+                    }
+                    <MudButton OnClick="ZoomToFit" Variant="Variant.Outlined" Size="Size.Small"
+                               StartIcon="@Icons.Material.Filled.CenterFocusStrong">Fit</MudButton>
+                    <MudTooltip Text="Export diagram as PNG image" Placement="Placement.Bottom">
+                        <MudIconButton Icon="@Icons.Material.Filled.Image" Size="Size.Small"
+                                       Variant="Variant.Outlined" OnClick="ExportDiagramPng" />
+                    </MudTooltip>
+                    <MudTooltip Text="Toggle fullscreen" Placement="Placement.Bottom">
+                        <MudIconButton Icon="@Icons.Material.Filled.Fullscreen" Size="Size.Small"
+                                       Variant="Variant.Outlined" OnClick="ToggleDiagramFullscreen" />
+                    </MudTooltip>
+                </div>
+            </div>
+            @{
+                var totalNodes = reportData?.Graph is { } g
+                    ? g.Packages.Count + g.Tasks.Count + g.Components.Count : 0;
+            }
+            @if (totalNodes > 150)
+            {
+                <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-2" Icon="@Icons.Material.Filled.Speed">
+                    Large project: @totalNodes nodes detected. The diagram may be slow or dense.
+                    Use the <strong>Package</strong> and <strong>Task</strong> filters above to focus on a subset.
+                </MudAlert>
+            }
+            <div class="diagram-container" id="diagram-container" @key="renderToken">
+                <div id="graph-diagram" class="graph-view"></div>
+                @* Exit-fullscreen button — hidden normally, shown by CSS only when the
+                   container is the active fullscreen element (toolbar is outside the
+                   element and disappears from view when fullscreen is entered). *@
+                <button class="fs-exit-overlay" @onclick="ToggleDiagramFullscreen" title="Exit fullscreen">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                        <path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/>
+                    </svg>
+                </button>
+            </div>
+        </MudPaper>
+    }
+
+
+</MudStack>
+
+@* ── Drill-down detail panel (opens on graph node/edge click) ── *@
+@if (_detail != null)
+{
+    <div class="detail-overlay" @onclick="CloseDetail"></div>
+    <MudPaper id="detail-modal" Class="detail-modal" Elevation="12">
+        <div class="detail-modal-head">
+            <div class="d-flex align-center gap-3" style="min-width:0">
+                <MudIcon Icon="@_detail.Icon" Color="Color.Primary" Size="Size.Large" />
+                <div style="min-width:0">
+                    <MudText Typo="Typo.h6" Style="line-height:1.2;word-break:break-word">@_detail.Title</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">@_detail.Subtitle</MudText>
+                </div>
+            </div>
+            <div class="d-flex align-center">
+                @* Enter-fullscreen icon — shown normally, hidden by CSS when modal IS fullscreen *@
+                <MudTooltip Text="Expand to full screen" Placement="Placement.Bottom">
+                    <MudIconButton Class="modal-enter-fs" Icon="@Icons.Material.Filled.Fullscreen"
+                                   OnClick="ToggleModalFullscreen" Size="Size.Small" />
+                </MudTooltip>
+                @* Exit-fullscreen icon — hidden normally, shown by CSS when modal IS fullscreen *@
+                <MudTooltip Text="Exit full screen" Placement="Placement.Bottom">
+                    <MudIconButton Class="modal-exit-fs" Icon="@Icons.Material.Filled.FullscreenExit"
+                                   OnClick="ToggleModalFullscreen" Size="Size.Small" />
+                </MudTooltip>
+                <MudIconButton Icon="@Icons.Material.Filled.Close" OnClick="CloseDetail" />
+            </div>
+        </div>
+        <MudDivider />
+        <div class="detail-modal-body">
+            @if (_detail.Facts.Count > 0)
+            {
+                <div class="detail-facts">
+                    @foreach (var f in _detail.Facts)
+                    {
+                        <div class="fact">
+                            <div class="fact-label">@f.Label</div>
+                            <div class="fact-value">@(string.IsNullOrEmpty(f.Value) ? "—" : f.Value)</div>
+                        </div>
+                    }
+                </div>
+            }
+
+            @if (_detail.Chips.Count > 0)
+            {
+                <MudText Typo="Typo.subtitle2" Class="mt-4 mb-1">@_detail.ChipsLabel (@_detail.Chips.Count)</MudText>
+                <div class="d-flex flex-wrap gap-1">
+                    @foreach (var c in _detail.Chips)
+                    {
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary"
+                                 OnClick="@(() => LocateNode(c.Id))">@c.Label</MudChip>
+                    }
+                </div>
+            }
+
+            @if (_detail.Mappings.Count > 0)
+            {
+                <div class="d-flex justify-space-between align-center mt-4 mb-2 flex-wrap gap-2">
+                    <MudText Typo="Typo.subtitle2">Column lineage (@_detail.Mappings.Count)</MudText>
+                    @if (_detail.Mappings.Count > 8)
+                    {
+                        <MudTextField @bind-Value="_detailSearch" Placeholder="Filter columns…" Immediate="true"
+                                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                                      Margin="Margin.Dense" Variant="Variant.Outlined" Class="mt-0" Style="max-width:240px" />
+                    }
+                </div>
+                <div class="detail-maps">
+                    <div class="map-head"><span>Source</span><span></span><span>Target</span><span>Operation</span></div>
+                    @foreach (var m in FilteredDetailMappings())
+                    {
+                        <div class="map-row">
+                            <span class="map-src" title="@m.Source">@m.Source</span>
+                            <MudIcon Icon="@Icons.Material.Filled.ArrowForward" Size="Size.Small" Class="map-arrow" />
+                            <span class="map-tgt" title="@m.Target">@m.Target</span>
+                            <span class="map-op" title="@m.Op">@FormatOp(m.Op)</span>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </MudPaper>
+}
+
+@code {
+    [CascadingParameter(Name = "IsDarkMode")] private bool IsDarkMode { get; set; }
+
+    private LineageReportData? reportData;
+    private string errorMessage = "";
+    private string projectPath = "";
+    private string startPackage = "";
+    private string sqlConnectionString = "";
+    private bool includeSqlProcedures = true;
+    private bool isGenerating = false;
+    private bool _controlsExpanded = true;
+    private int renderToken = 0;
+    private int _lastRenderedToken = -1;
+    private bool _lastRenderedDark = false;
+    private string graphFilterPackageId = "";
+    private string graphFilterTaskId = "";
+    private string _graphMode = "object";
+
+    private sealed record Metric(string Key, string Label, string Icon, string Section);
+
+    private static readonly Metric[] Metrics = new[]
+    {
+        new Metric("packages", "Packages", Icons.Material.Filled.Inventory2, "packages"),
+        new Metric("tasks", "Tasks", Icons.Material.Filled.Checklist, "tasks"),
+        new Metric("components", "Components", Icons.Material.Filled.Widgets, "data-flow-components"),
+        new Metric("dataFlowEdges", "Data Paths", Icons.Material.Filled.AltRoute, "data-flow-paths"),
+        new Metric("columnMappings", "Mappings", Icons.Material.Filled.TableRows, "column-mappings"),
+        new Metric("executionEdges", "Execution Edges", Icons.Material.Filled.Timeline, "execution-flow"),
+    };
+
+    private IReadOnlyList<RecentProject> _recents = Array.Empty<RecentProject>();
+
+    protected override void OnInitialized()
+    {
+        _recents = RecentProjects.Get();
+        // Restore the last generated report so returning from the detailed view
+        // (or re-navigating home) keeps the summary, graph, and grid.
+        reportData ??= LineageService.GetPublishedReport();
+        // Auto-collapse the controls panel when a report is already available on entry.
+        if (reportData != null) _controlsExpanded = false;
+    }
+
+    private void UseRecent(RecentProject r)
+    {
+        projectPath = r.ProjectPath;
+        startPackage = r.StartPackage;
+    }
+
+    private async Task BrowseFolder()
+    {
+        var picked = await FolderPicker.PickFolderAsync(string.IsNullOrWhiteSpace(projectPath) ? null : projectPath);
+        if (!string.IsNullOrWhiteSpace(picked))
+        {
+            projectPath = picked;
+            StateHasChanged();
+        }
+    }
+
+    private Task<IEnumerable<string>> SearchPackages(string? value, CancellationToken token)
+    {
+        IEnumerable<string> result = Array.Empty<string>();
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(projectPath) && Directory.Exists(projectPath))
+            {
+                var names = Directory.EnumerateFiles(projectPath, "*.dtsx", SearchOption.AllDirectories)
+                    .Select(Path.GetFileName)
+                    .Where(n => !string.IsNullOrEmpty(n))
+                    .Select(n => n!)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(n => n);
+
+                result = string.IsNullOrWhiteSpace(value)
+                    ? names
+                    : names.Where(n => n.Contains(value, StringComparison.OrdinalIgnoreCase));
+            }
+        }
+        catch
+        {
+            // directory may be inaccessible; fall back to free-text entry
+        }
+        return Task.FromResult(result);
+    }
+
+    private IEnumerable<TaskNode> FilteredTasksForGraph()
+    {
+        if (reportData == null) return Enumerable.Empty<TaskNode>();
+        var tasks = reportData.Graph.Tasks.AsEnumerable();
+        if (!string.IsNullOrEmpty(graphFilterPackageId))
+        {
+            tasks = tasks.Where(t => t.PackageId == graphFilterPackageId);
+        }
+        return tasks.OrderBy(t => t.Name);
+    }
+
+    private async Task ApplyGraphFilterAsync()
+    {
+        if (reportData == null) return;
+        await RenderGraphAsync();
+    }
+
+    private async Task ClearGraphFilters()
+    {
+        graphFilterPackageId = "";
+        graphFilterTaskId = "";
+        await RenderGraphAsync();
+    }
+
+    private async Task RenderGraphAsync()
+    {
+        if (reportData == null) return;
+        _objRef ??= DotNetObjectReference.Create(this);
+        await JS.InvokeVoidAsync("cyLineage.render", "graph-diagram", reportData.Graph,
+            new { packageId = graphFilterPackageId, taskId = graphFilterTaskId, startPackage }, _objRef, IsDarkMode, _graphMode);
+    }
+
+    private async Task ZoomToFit()
+    {
+        await JS.InvokeVoidAsync("cyLineage.fit");
+    }
+
+    private async Task ExportDiagramPng()
+    {
+        await JS.InvokeVoidAsync("cyLineage.exportPng", "ssis-lineage-diagram.png");
+    }
+
+    private async Task ToggleDiagramFullscreen()
+    {
+        await JS.InvokeVoidAsync("cyLineage.toggleFullscreen", "diagram-container");
+    }
+
+    private async Task LocateNode(string id)
+    {
+        await JS.InvokeVoidAsync("cyLineage.locate", id);
+    }
+
+    private void NavigateToDetailedSection(string section)
+    {
+        if (reportData == null) return;
+        LineageService.PublishReport(reportData);
+        NavigationManager.NavigateTo($"/detailed-report#{section}");
+    }
+
+    private async Task GenerateReportAsync()
+    {
+        errorMessage = "";
+        isGenerating = true;
+
+        try
+        {
+            // Normalize inputs: strip whitespace and any surrounding quotes from a pasted path
+            projectPath = (projectPath ?? "").Trim().Trim('"');
+            startPackage = (startPackage ?? "").Trim().Trim('"');
+
+            if (string.IsNullOrWhiteSpace(projectPath))
+            {
+                errorMessage = "Project path is required";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(startPackage))
+            {
+                errorMessage = "Start package is required";
+                return;
+            }
+
+            if (!Directory.Exists(projectPath) && !File.Exists(projectPath))
+            {
+                errorMessage = $"Project path does not exist: {projectPath}";
+                return;
+            }
+
+            reportData = await Task.Run(() =>
+                LineageService.GenerateLineageReport(
+                    projectPath,
+                    startPackage,
+                    false,   // useCache: always parse fresh — avoids stale package-hash cache
+                    includeSqlProcedures,
+                    sqlConnectionString));
+
+            graphFilterPackageId = "";
+            graphFilterTaskId = "";
+            renderToken++;
+
+            RecentProjects.Add(projectPath, startPackage);
+            _recents = RecentProjects.Get();
+            LineageService.PublishReport(reportData); // persist so "Back to Summary" keeps it
+            _controlsExpanded = false; // collapse — user can expand again to re-run with different settings
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+            reportData = null;
+        }
+        finally
+        {
+            isGenerating = false;
+        }
+    }
+
+    private async Task ExportLineageCsv()
+    {
+        if (reportData == null) return;
+        await DownloadFile("lineage_details.csv", reportData.CsvExport);
+    }
+
+    private async Task DownloadFile(string fileName, string content)
+    {
+        if (string.IsNullOrEmpty(content)) return;
+        var bytes = System.Text.Encoding.UTF8.GetBytes(content);
+        var base64 = Convert.ToBase64String(bytes);
+        await JS.InvokeVoidAsync("downloadFileFromBase64", fileName, base64);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        try
+        {
+            // Only re-render the graph when the report data or dark mode actually changed,
+            // NOT on every Blazor render cycle (e.g. modal open/close). This preserves
+            // the current zoom and pan position when the detail panel is opened or closed.
+            if (reportData != null && (renderToken != _lastRenderedToken || IsDarkMode != _lastRenderedDark))
+            {
+                _lastRenderedToken = renderToken;
+                _lastRenderedDark = IsDarkMode;
+                await Task.Delay(200); // allow DOM reconciliation
+                await RenderGraphAsync();
+            }
+        }
+        catch (Exception) { /* JS console captures details */ }
+    }
+
+    // ── Graph drill-down ──────────────────────────────────────────────
+    private DotNetObjectReference<Lineage>? _objRef;
+    private DetailView? _detail;
+    private string _detailSearch = "";
+
+    private IEnumerable<(string Source, string Target, string Op)> FilteredDetailMappings()
+    {
+        if (_detail == null) return Enumerable.Empty<(string, string, string)>();
+        var rows = _detail.Mappings.AsEnumerable();
+        if (!string.IsNullOrWhiteSpace(_detailSearch))
+        {
+            var s = _detailSearch.Trim();
+            rows = rows.Where(m =>
+                m.Source.Contains(s, StringComparison.OrdinalIgnoreCase) ||
+                m.Target.Contains(s, StringComparison.OrdinalIgnoreCase) ||
+                m.Op.Contains(s, StringComparison.OrdinalIgnoreCase));
+        }
+        return rows.Take(500);
+    }
+
+    private sealed class DetailView
+    {
+        public string Title = "";
+        public string Subtitle = "";
+        public string Icon = Icons.Material.Filled.Info;
+        public List<(string Label, string Value)> Facts = new();
+        public string ChipsLabel = "";
+        public List<(string Id, string Label)> Chips = new();
+        public List<(string Source, string Target, string Op)> Mappings = new();
+    }
+
+    private void CloseDetail()
+    {
+        _detail = null;
+        _detailSearch = "";
+    }
+
+    private static string Short(string? s, int n) =>
+        string.IsNullOrEmpty(s) ? "" : (s.Length > n ? s[..n] + "…" : s);
+
+    private (string Source, string Target, string Op) MapRow(ColumnMap m)
+    {
+        var srcTable = !string.IsNullOrEmpty(m.SourceTable) ? $"{m.SourceSchema}.{m.SourceTable}".Trim('.') : m.SourceComponentName;
+        var tgtTable = !string.IsNullOrEmpty(m.TargetTable) ? $"{m.TargetSchema}.{m.TargetTable}".Trim('.') : m.TargetComponentName;
+        var src = string.IsNullOrEmpty(m.SourceColumnName) ? srcTable : $"{srcTable}.{m.SourceColumnName}";
+        var tgt = string.IsNullOrEmpty(m.TargetColumnName) ? tgtTable : $"{tgtTable}.{m.TargetColumnName}";
+        return (src, tgt, m.OperationType);
+    }
+
+    // Strip the SQL_PROC_ prefix and humanise underscores for the operation badge.
+    private static string FormatOp(string op)
+    {
+        if (string.IsNullOrEmpty(op)) return "";
+        var s = op.StartsWith("SQL_PROC_", StringComparison.OrdinalIgnoreCase)
+            ? op["SQL_PROC_".Length..]
+            : op;
+        return s.Replace('_', ' ');
+    }
+
+    private async Task ToggleModalFullscreen()
+    {
+        await JS.InvokeVoidAsync("cyLineage.toggleFullscreen", "detail-modal");
+    }
+
+    [JSInvokable]
+    public async Task OnGraphNodeClick(string id, string kind)
+    {
+        if (reportData == null) return;
+        var g = reportData.Graph;
+        var d = new DetailView();
+
+        if (kind == "package")
+        {
+            var p = g.Packages.FirstOrDefault(x => x.Id == id);
+            if (p == null) return;
+            d.Title = p.Name;
+            d.Subtitle = "Package";
+            d.Icon = Icons.Material.Filled.Inventory2;
+            d.Facts.Add(("Path", p.Path));
+            if (!string.IsNullOrEmpty(p.FileHash)) d.Facts.Add(("File hash", Short(p.FileHash, 12)));
+            if (p.ConnectionManagers.Count > 0) d.Facts.Add(("Connection managers", string.Join(", ", p.ConnectionManagers)));
+            d.Facts.Add(("Variables", p.Variables.Count.ToString()));
+            d.ChipsLabel = "Tasks";
+            d.Chips = g.Tasks.Where(t => t.PackageId == id).Select(t => (t.Id, t.Name)).ToList();
+        }
+        else if (kind == "task")
+        {
+            var t = g.Tasks.FirstOrDefault(x => x.Id == id);
+            if (t == null) return;
+            d.Title = t.Name;
+            d.Subtitle = string.IsNullOrEmpty(t.Type) ? "Task" : t.Type;
+            d.Icon = Icons.Material.Filled.Checklist;
+            d.Facts.Add(("Package", t.PackageName));
+            if (!string.IsNullOrEmpty(t.Description)) d.Facts.Add(("Description", t.Description));
+            var comps = g.Components.Where(c => c.TaskId == id && !c.Type.Contains("Execute SQL", StringComparison.OrdinalIgnoreCase)).ToList();
+            d.ChipsLabel = "Components";
+            d.Chips = comps.Select(c => (c.Id, c.Name)).ToList();
+            // Distinct on (Source, Target, OperationType) — keeps INSERT and UPDATE rows separately
+            d.Mappings = g.ColumnMappings.Where(m => m.TaskId == id).Select(MapRow).Distinct().ToList();
+        }
+        else // component
+        {
+            var c = g.Components.FirstOrDefault(x => x.Id == id);
+            if (c == null) return;
+            d.Title = c.Name;
+            d.Subtitle = string.IsNullOrEmpty(c.Type) ? "Component" : c.Type;
+            d.Icon = Icons.Material.Filled.Widgets;
+            if (!string.IsNullOrEmpty(c.ConnectionManager)) d.Facts.Add(("Connection", c.ConnectionManager));
+            if (!string.IsNullOrEmpty(c.SqlQueryOrTable)) d.Facts.Add(("SQL / Table", c.SqlQueryOrTable));
+            d.Mappings = g.ColumnMappings
+                .Where(m => m.SourceComponentId == id || m.TargetComponentId == id || m.SourceComponentId.StartsWith(id + "::", StringComparison.Ordinal))
+                .Select(MapRow).Distinct().ToList();
+        }
+
+        _detail = d;
+        _detailSearch = "";
+        await InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public async Task OnGraphEdgeClick(string source, string target, string rel)
+    {
+        if (reportData == null) return;
+        var g = reportData.Graph;
+        var d = new DetailView();
+
+        string TaskName(string tid) => g.Tasks.FirstOrDefault(t => t.Id == tid)?.Name ?? tid;
+        string CompName(string cid) => g.Components.FirstOrDefault(c => c.Id == cid)?.Name ?? cid;
+
+        if (rel == "execution")
+        {
+            var e = g.ExecutionEdges.FirstOrDefault(x => x.FromTaskId == source && x.ToTaskId == target);
+            d.Title = "Precedence constraint";
+            d.Subtitle = "Execution edge";
+            d.Icon = Icons.Material.Filled.Timeline;
+            d.Facts.Add(("From", TaskName(source)));
+            d.Facts.Add(("To", TaskName(target)));
+            d.Facts.Add(("Constraint", string.IsNullOrEmpty(e?.PrecedenceConstraintValue) ? "Success" : e!.PrecedenceConstraintValue));
+            if (!string.IsNullOrEmpty(e?.Expression)) d.Facts.Add(("Expression", e!.Expression));
+        }
+        else if (rel == "invokes")
+        {
+            d.Title = "Execute Package";
+            d.Subtitle = "Cross-package invoke";
+            d.Icon = Icons.Material.Filled.CallMade;
+            d.Facts.Add(("Calling task", TaskName(source)));
+            d.Facts.Add(("Child package", g.Packages.FirstOrDefault(p => p.Id == target)?.Name ?? target));
+        }
+        else if (rel == "data")
+        {
+            d.Title = "Data flow path";
+            d.Subtitle = "Data edge";
+            d.Icon = Icons.Material.Filled.AltRoute;
+            d.Facts.Add(("From", CompName(source)));
+            d.Facts.Add(("To", CompName(target)));
+            d.Mappings = g.ColumnMappings
+                .Where(m => (m.SourceComponentId == source || m.SourceComponentId.StartsWith(source + "::", StringComparison.Ordinal)) && m.TargetComponentId == target)
+                .Select(MapRow).Distinct().ToList();
+        }
+        else // contains
+        {
+            d.Title = "Containment";
+            d.Subtitle = "Parent → child";
+            d.Icon = Icons.Material.Filled.AccountTree;
+            d.Facts.Add(("Parent", g.Packages.FirstOrDefault(p => p.Id == source)?.Name ?? TaskName(source)));
+            d.Facts.Add(("Child", TaskName(target) != target ? TaskName(target) : CompName(target)));
+        }
+
+        _detail = d;
+        _detailSearch = "";
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        _objRef?.Dispose();
+    }
+}
+
+<style scoped>
+    .metric-card {
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .metric-card:hover {
+        transform: translateY(-2px);
+    }
+    /* .diagram-container / .graph-view / .fs-exit-overlay now live in app.css (shared
+       across Lineage Discovery and Lineage Search). */
+    .detail-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1399;
+        backdrop-filter: blur(1px);
+    }
+    .detail-modal {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 1400;
+        width: min(960px, 96vw);
+        max-height: 86vh;
+        display: flex;
+        flex-direction: column;
+        border-radius: 12px;
+        overflow: hidden;
+        animation: detail-pop 0.16s ease-out;
+    }
+    @@keyframes detail-pop {
+        from { opacity: 0; transform: translate(-50%, -47%) scale(0.98); }
+        to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    }
+    .detail-modal-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 16px 20px;
+    }
+    .detail-modal-body {
+        padding: 16px 20px 20px;
+        overflow-y: auto;
+    }
+    .detail-facts {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 10px 24px;
+    }
+    .detail-facts .fact-label {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        color: #94a3b8;
+        margin-bottom: 1px;
+    }
+    .detail-facts .fact-value { font-size: 14px; word-break: break-word; }
+
+    .detail-maps {
+        border: 1px solid var(--mud-palette-lines-default, #334155);
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    .detail-maps .map-head,
+    .detail-maps .map-row {
+        display: grid;
+        grid-template-columns: 1fr 26px 1fr auto;
+        gap: 10px;
+        align-items: center;
+        padding: 7px 14px;
+    }
+    .detail-maps .map-head {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        color: #94a3b8;
+        background: rgba(127, 127, 127, 0.1);
+    }
+    .detail-maps .map-row {
+        font-size: 13px;
+        border-top: 1px solid var(--mud-palette-lines-default, #2a3650);
+    }
+    .detail-maps .map-row:nth-child(even) { background: rgba(127, 127, 127, 0.04); }
+    .map-row .map-src,
+    .map-row .map-tgt {
+        font-family: Consolas, 'Courier New', monospace;
+        white-space: pre-wrap;
+        word-break: break-all;
+        overflow-wrap: anywhere;
+    }
+    .map-row .map-src { color: #22c55e; }
+    .map-row .map-tgt { color: #f59e0b; }
+    .map-row .map-arrow { opacity: 0.5; justify-self: center; }
+    .map-row .map-op {
+        font-size: 11px;
+        font-weight: 600;
+        white-space: nowrap;
+        padding: 2px 6px;
+        border-radius: 4px;
+        background: rgba(99, 102, 241, 0.15);
+        color: #818cf8;
+        letter-spacing: 0.02em;
+    }
+
+    /* Modal fullscreen button icon toggle — driven by .is-fullscreen class added by JS */
+    .modal-exit-fs { display: none !important; }
+    #detail-modal:fullscreen .modal-enter-fs,
+    #detail-modal:-webkit-full-screen .modal-enter-fs,
+    #detail-modal:-moz-full-screen .modal-enter-fs,
+    #detail-modal.is-fullscreen .modal-enter-fs { display: none !important; }
+    #detail-modal:fullscreen .modal-exit-fs,
+    #detail-modal:-webkit-full-screen .modal-exit-fs,
+    #detail-modal:-moz-full-screen .modal-exit-fs,
+    #detail-modal.is-fullscreen .modal-exit-fs { display: inline-flex !important; }
+
+    /* Modal fullscreen — override the fixed-center positioning */
+    #detail-modal:fullscreen,
+    #detail-modal:-webkit-full-screen,
+    #detail-modal:-moz-full-screen,
+    #detail-modal.is-fullscreen {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        transform: none !important;
+        width: 100vw !important;
+        max-height: 100vh !important;
+        height: 100vh !important;
+        border-radius: 0 !important;
+        animation: none !important;
+    }
+    #detail-modal:fullscreen .detail-modal-body,
+    #detail-modal:-webkit-full-screen .detail-modal-body,
+    #detail-modal:-moz-full-screen .detail-modal-body,
+    #detail-modal.is-fullscreen .detail-modal-body {
+        max-height: calc(100vh - 80px);
+    }
+</style>

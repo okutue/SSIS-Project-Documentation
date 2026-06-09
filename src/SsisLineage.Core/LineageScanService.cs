@@ -14,6 +14,12 @@ namespace SsisLineage.Core
         public bool UseCache { get; set; } = true;
         public bool IncludeSqlProcedures { get; set; }
         public string SqlConnectionString { get; set; } = "";
+        /// <summary>
+        /// Variable/parameter value overrides applied on top of design-time values, keyed
+        /// "Namespace::Name" (e.g. "Project::TargetDb"). Typically extracted from an SSIS
+        /// catalog environment — see docs/CI.md for the SSISDB query.
+        /// </summary>
+        public Dictionary<string, string> VariableOverrides { get; set; } = new();
     }
 
     public class LineageScanResult
@@ -81,7 +87,7 @@ namespace SsisLineage.Core
             }
             else
             {
-                var parser = new SsisPackageParser(projectInfo.ProjectDirectory);
+                var parser = new SsisPackageParser(projectInfo.ProjectDirectory, options.VariableOverrides);
                 graph = parser.Parse(rootPackage.Path);
 
                 cache.CachedPackages[cacheKey] = new CachedPackageResult
@@ -206,7 +212,9 @@ namespace SsisLineage.Core
                 ["lineage.yaml"] = OutputGenerator.GenerateYaml(graph),
                 ["lineage.cypher"] = OutputGenerator.GenerateCypher(graph),
                 ["execution-flow.md"] = OutputGenerator.GenerateMarkdownReport(graph),
-                ["lineage-report.html"] = OutputGenerator.GenerateHtmlReport(graph)
+                ["lineage-report.html"] = OutputGenerator.GenerateHtmlReport(graph),
+                ["lineage.mmd"] = OutputGenerator.GenerateMermaid(graph),
+                ["lineage.openlineage.json"] = OutputGenerator.GenerateOpenLineage(graph)
             };
 
             var writtenFiles = new List<string>();

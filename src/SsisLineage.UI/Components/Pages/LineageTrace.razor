@@ -55,6 +55,16 @@
                     <MudToggleItem Value="SearchScope.Table">Table</MudToggleItem>
                 </MudToggleGroup>
 
+                <MudTooltip Placement="Placement.Bottom"
+                            Text="Full lineage traces both ways. Impact shows only what this node feeds (downstream). Origins shows only where its data comes from (upstream).">
+                    <MudToggleGroup T="TraceDirection" @bind-Value="_direction" @bind-Value:after="OnDirectionChanged"
+                                    Size="Size.Small" Color="Color.Secondary" CheckMark="false">
+                        <MudToggleItem Value="TraceDirection.Both">Full lineage</MudToggleItem>
+                        <MudToggleItem Value="TraceDirection.Downstream">Impact ↓</MudToggleItem>
+                        <MudToggleItem Value="TraceDirection.Upstream">Origins ↑</MudToggleItem>
+                    </MudToggleGroup>
+                </MudTooltip>
+
                 <MudAutocomplete T="SearchHit" @bind-Value="_selected" @bind-Value:after="OnHitSelected"
                                  Label="@($"Search {_scope.ToString().ToLower()}")"
                                  Placeholder="Type a name to search…"
@@ -70,7 +80,12 @@
                 <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-3">
                     @if (_trace.Steps.Count > 0)
                     {
-                        <span>Traced <strong>@_trace.FocusLabel</strong> — @_trace.Steps.Count column mapping(s) spanning @_trace.TableCount table(s), from ultimate source(s) to final target(s).</span>
+                        <span>Traced <strong>@_trace.FocusLabel</strong> — @_trace.Steps.Count column mapping(s) spanning @_trace.TableCount table(s)@(_direction switch
+                        {
+                            TraceDirection.Downstream => ", downstream impact only",
+                            TraceDirection.Upstream => ", upstream origins only",
+                            _ => ", from ultimate source(s) to final target(s)"
+                        }).</span>
                     }
                     else
                     {
@@ -152,6 +167,7 @@
     private LineageReportData? reportData;
     private LineageTracer? _tracer;
     private SearchScope _scope = SearchScope.Column;
+    private TraceDirection _direction = TraceDirection.Both;
     private SearchHit? _selected;
     private TraceResult? _trace;
 
@@ -179,6 +195,12 @@
         _trace = null;
     }
 
+    private void OnDirectionChanged()
+    {
+        // Re-trace the current selection with the new direction.
+        OnHitSelected();
+    }
+
     private void OnHitSelected()
     {
         if (_tracer == null || _selected == null)
@@ -186,7 +208,7 @@
             _trace = null;
             return;
         }
-        _trace = _tracer.Trace(_selected);
+        _trace = _tracer.Trace(_selected, _direction);
         renderToken++;
     }
 

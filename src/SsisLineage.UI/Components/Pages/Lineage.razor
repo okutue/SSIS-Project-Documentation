@@ -120,6 +120,15 @@
                         @(isGenerating ? "Generating..." : "Generate Report")
                     </MudButton>
 
+                    <MudFileUpload T="IBrowserFile" FilesChanged="LoadReportFile" Accept=".json" Class="mt-1">
+                        <ActivatorContent>
+                            <MudButton Variant="Variant.Text" Size="Size.Small" FullWidth="true"
+                                       StartIcon="@Icons.Material.Filled.FileOpen">
+                                Load saved report…
+                            </MudButton>
+                        </ActivatorContent>
+                    </MudFileUpload>
+
                     @if (isGenerating)
                     {
                         <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mt-3" />
@@ -147,6 +156,16 @@
                             <MudButton OnClick='() => DownloadFile("lineage.yaml", reportData.YamlExport)' Variant="Variant.Outlined" Size="Size.Small">YAML</MudButton>
                             <MudButton OnClick='() => DownloadFile("lineage.cypher", reportData.CypherExport)' Variant="Variant.Outlined" Size="Size.Small">Cypher</MudButton>
                             <MudButton OnClick='() => DownloadFile("lineage.md", reportData.MarkdownExport)' Variant="Variant.Outlined" Size="Size.Small">Markdown</MudButton>
+                            <MudTooltip Text="Mermaid flowchart — renders in GitHub READMEs and wikis" Placement="Placement.Bottom">
+                                <MudButton OnClick='() => DownloadFile("lineage.mmd", reportData.MermaidExport)' Variant="Variant.Outlined" Size="Size.Small">Mermaid</MudButton>
+                            </MudTooltip>
+                            <MudTooltip Text="OpenLineage run events — for Marquez, Purview, DataHub" Placement="Placement.Bottom">
+                                <MudButton OnClick='() => DownloadFile("lineage.openlineage.json", reportData.OpenLineageExport)' Variant="Variant.Outlined" Size="Size.Small">OpenLineage</MudButton>
+                            </MudTooltip>
+                            <MudTooltip Text="Save this report to reopen later without re-scanning" Placement="Placement.Bottom">
+                                <MudButton OnClick='() => DownloadFile("report.lineage.json", reportData.JsonExport)' Variant="Variant.Filled" Size="Size.Small"
+                                           Color="Color.Primary" StartIcon="@Icons.Material.Filled.Save">Save Report</MudButton>
+                            </MudTooltip>
                         </div>
                     </div>
 
@@ -567,6 +586,35 @@
         }
     }
 
+    private async Task LoadReportFile(IBrowserFile? file)
+    {
+        if (file == null) return;
+        errorMessage = "";
+        try
+        {
+            using var stream = file.OpenReadStream(maxAllowedSize: 200L * 1024 * 1024);
+            using var reader = new StreamReader(stream);
+            var json = await reader.ReadToEndAsync();
+
+            var loaded = LineageService.LoadFromJson(json, Path.GetFileNameWithoutExtension(file.Name));
+            if (loaded == null)
+            {
+                errorMessage = $"'{file.Name}' is not a valid saved lineage report.";
+                return;
+            }
+
+            reportData = loaded;
+            graphFilterPackageId = "";
+            graphFilterTaskId = "";
+            renderToken++;
+            _controlsExpanded = false;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load report: {ex.Message}";
+        }
+    }
+
     private async Task ExportLineageCsv()
     {
         if (reportData == null) return;
@@ -708,6 +756,7 @@
             d.Icon = Icons.Material.Filled.Widgets;
             if (!string.IsNullOrEmpty(c.ConnectionManager)) d.Facts.Add(("Connection", c.ConnectionManager));
             if (!string.IsNullOrEmpty(c.SqlQueryOrTable)) d.Facts.Add(("SQL / Table", c.SqlQueryOrTable));
+            if (c.ParameterBindings.Count > 0) d.Facts.Add(("Parameter bindings", string.Join("; ", c.ParameterBindings)));
             d.Mappings = g.ColumnMappings
                 .Where(m => m.SourceComponentId == id || m.TargetComponentId == id || m.SourceComponentId.StartsWith(id + "::", StringComparison.Ordinal))
                 .Select(MapRow).Distinct().ToList();

@@ -42,6 +42,8 @@ namespace SsisLineage.UI.Services
         public string CypherExport { get; set; } = "";
         public string CsvExport { get; set; } = "";
         public string MarkdownExport { get; set; } = "";
+        public string MermaidExport { get; set; } = "";
+        public string OpenLineageExport { get; set; } = "";
     }
 
     public class LineageService
@@ -90,48 +92,13 @@ namespace SsisLineage.UI.Services
                 // Perform scan
                 var scanService = new LineageScanService();
                 var result = scanService.Scan(options);
-                var graph = result.Graph;
 
-                var columnRows = BuildColumnLineage(graph, startPackage);
-
-                var htmlFragment = OutputGenerator.GenerateHtmlFragment(graph);
-
-                var summary = new Dictionary<string, object>
-                {
-                    { "projectName", Path.GetFileName(projectPath) },
-                    { "isCached", result.CacheHit },
-                    { "projectDirectory", result.Project.ProjectDirectory },
-                    { "totalNodes", graph.Packages.Count + graph.Tasks.Count + graph.Components.Count },
-                    { "totalEdges", graph.DataFlowEdges.Count + graph.ExecutionEdges.Count },
-                    { "packages", graph.Packages.Count },
-                    { "tasks", graph.Tasks.Count },
-                    { "components", graph.Components.Count },
-                    { "dataFlowEdges", graph.DataFlowEdges.Count },
-                    { "columnMappings", graph.ColumnMappings.Count },
-                    { "executionEdges", graph.ExecutionEdges.Count },
-                    { "warnings", graph.Warnings.Count },
-                    { "generatedAt", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") }
-                };
-
-                // Prepare export formats
-                var jsonExport = System.Text.Json.JsonSerializer.Serialize(graph, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
-                
-                // Wire to Core OutputGenerator for other formats
-                var yamlExport = OutputGenerator.GenerateYaml(graph);
-                var cypherExport = OutputGenerator.GenerateCypher(graph);
-
-                var reportData = new LineageReportData
-                {
-                    HtmlFragment = htmlFragment,
-                    Graph = graph,
-                    Summary = summary,
-                    ColumnLineage = columnRows,
-                    JsonExport = jsonExport,
-                    YamlExport = yamlExport,
-                    CypherExport = cypherExport,
-                    CsvExport = OutputGenerator.GenerateColumnLineageCsv(graph),
-                    MarkdownExport = OutputGenerator.GenerateMarkdownReport(graph)
-                };
+                var reportData = BuildReportData(
+                    result.Graph,
+                    Path.GetFileName(projectPath),
+                    result.Project.ProjectDirectory,
+                    result.CacheHit,
+                    startPackage);
 
                 PublishReport(reportData);
                 return reportData;
@@ -139,6 +106,72 @@ namespace SsisLineage.UI.Services
             catch (Exception ex)
             {
                 throw new Exception($"Failed to generate lineage report: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
+        /// Builds full report data (summary, column lineage, all export formats) from an
+        /// already-available graph — used after a scan AND when loading a saved
+        /// .lineage.json report file.
+        /// </summary>
+        public LineageReportData BuildReportData(LineageGraph graph, string projectName,
+            string projectDirectory = "", bool isCached = false, string startPackage = "")
+        {
+            var columnRows = BuildColumnLineage(graph, startPackage);
+
+            var summary = new Dictionary<string, object>
+            {
+                { "projectName", projectName },
+                { "isCached", isCached },
+                { "projectDirectory", projectDirectory },
+                { "totalNodes", graph.Packages.Count + graph.Tasks.Count + graph.Components.Count },
+                { "totalEdges", graph.DataFlowEdges.Count + graph.ExecutionEdges.Count },
+                { "packages", graph.Packages.Count },
+                { "tasks", graph.Tasks.Count },
+                { "components", graph.Components.Count },
+                { "dataFlowEdges", graph.DataFlowEdges.Count },
+                { "columnMappings", graph.ColumnMappings.Count },
+                { "executionEdges", graph.ExecutionEdges.Count },
+                { "warnings", graph.Warnings.Count },
+                { "generatedAt", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") }
+            };
+
+            return new LineageReportData
+            {
+                HtmlFragment = OutputGenerator.GenerateHtmlFragment(graph),
+                Graph = graph,
+                Summary = summary,
+                ColumnLineage = columnRows,
+                JsonExport = OutputGenerator.GenerateJson(graph),
+                YamlExport = OutputGenerator.GenerateYaml(graph),
+                CypherExport = OutputGenerator.GenerateCypher(graph),
+                CsvExport = OutputGenerator.GenerateColumnLineageCsv(graph),
+                MarkdownExport = OutputGenerator.GenerateMarkdownReport(graph),
+                MermaidExport = OutputGenerator.GenerateMermaid(graph),
+                OpenLineageExport = OutputGenerator.GenerateOpenLineage(graph)
+            };
+        }
+
+        /// <summary>
+        /// Restores a report from a previously saved .lineage.json file (the JSON export
+        /// of the lineage graph). Returns null when the content is not a valid graph.
+        /// </summary>
+        public LineageReportData? LoadFromJson(string json, string fileName)
+        {
+            try
+            {
+                var graph = System.Text.Json.JsonSerializer.Deserialize<LineageGraph>(json,
+                    new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                if (graph == null || (graph.Packages.Count == 0 && graph.ColumnMappings.Count == 0))
+                    return null;
+
+                var reportData = BuildReportData(graph, fileName);
+                PublishReport(reportData);
+                return reportData;
+            }
+            catch
+            {
+                return null;
             }
         }
 

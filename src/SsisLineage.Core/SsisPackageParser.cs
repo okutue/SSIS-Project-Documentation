@@ -14,11 +14,28 @@ namespace SsisLineage.Core
         private readonly string _projectDirectory;
         private readonly LineageGraph _graph;
         private readonly HashSet<string> _visitedPackages = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, object> _variableOverrides;
 
-        public SsisPackageParser(string projectDirectory)
+        public SsisPackageParser(string projectDirectory, Dictionary<string, string>? variableOverrides = null)
         {
             _projectDirectory = projectDirectory;
             _graph = new LineageGraph();
+            _variableOverrides = (variableOverrides ?? new Dictionary<string, string>())
+                .ToDictionary(kv => kv.Key, kv => (object)kv.Value, StringComparer.OrdinalIgnoreCase);
+        }
+
+        // Project params fill gaps, then explicit overrides (e.g. extracted from an SSIS
+        // catalog environment) win over everything.
+        private void ApplyVariableLayers(Dictionary<string, object> variables)
+        {
+            foreach (var kv in ExpressionEvaluator.LoadProjectParameters(_projectDirectory))
+            {
+                variables.TryAdd(kv.Key, kv.Value);
+            }
+            foreach (var kv in _variableOverrides)
+            {
+                variables[kv.Key] = kv.Value;
+            }
         }
 
         public LineageGraph Parse(string rootPackagePath)
@@ -67,12 +84,9 @@ namespace SsisLineage.Core
                     packageNode.ConnectionManagers.Add(cm.Name);
                 }
 
-                // Extract variables + project parameters (Project.params)
+                // Extract variables + project parameters (Project.params) + explicit overrides
                 var variables = ExpressionEvaluator.ExtractVariables(package);
-                foreach (var kv in ExpressionEvaluator.LoadProjectParameters(_projectDirectory))
-                {
-                    variables.TryAdd(kv.Key, kv.Value);
-                }
+                ApplyVariableLayers(variables);
                 foreach (var varKey in variables.Keys)
                 {
                     packageNode.Variables.Add(varKey);
@@ -85,6 +99,14 @@ namespace SsisLineage.Core
 
                 // Process Precedence Constraints (Execution Edges)
                 ProcessPrecedenceConstraints(package.PrecedenceConstraints);
+
+                // Walk event handlers (OnError, OnPostExecute, …) — they can contain
+                // Execute SQL / Data Flow tasks that move data just like the main flow.
+                foreach (DtsEventHandler eventHandler in package.EventHandlers)
+                {
+                    ProcessExecutables(eventHandler.Executables, packageNode, variables);
+                    ProcessPrecedenceConstraints(eventHandler.PrecedenceConstraints);
+                }
             }
             catch (Exception)
             {
@@ -401,13 +423,10 @@ namespace SsisLineage.Core
                     ProjectPath = _projectDirectory,
                     FileHash = ProjectLoader.ComputeFileHash(packagePath)
                 };
-                // Package variables + project parameters — used for display and to resolve
-                // variable-driven SQL statements (e.g. SqlStatementSource = @[User::SQLQuery]).
+                // Package variables + project parameters + explicit overrides — used for display
+                // and to resolve variable-driven SQL (e.g. SqlStatementSource = @[User::SQLQuery]).
                 var variables = ExpressionEvaluator.ExtractVariablesFromXml(doc);
-                foreach (var kv in ExpressionEvaluator.LoadProjectParameters(_projectDirectory))
-                {
-                    variables.TryAdd(kv.Key, kv.Value);
-                }
+                ApplyVariableLayers(variables);
                 foreach (var varKey in variables.Keys)
                 {
                     packageNode.Variables.Add(varKey);
@@ -533,6 +552,24 @@ namespace SsisLineage.Core
                     if (!string.IsNullOrWhiteSpace(resolved)) sqlSource = resolved;
                 }
 
+                // Parameter bindings (? placeholders ↔ SSIS variables) and result-set bindings
+                var bindings = new List<string>();
+                foreach (var pb in sqlData.Descendants().Where(x => x.Name.LocalName == "ParameterBinding"))
+                {
+                    var paramName = pb.Attribute(sqlTask + "ParameterName")?.Value ?? pb.Attribute("ParameterName")?.Value ?? "?";
+                    var varName = pb.Attribute(sqlTask + "DtsVariableName")?.Value ?? pb.Attribute("DtsVariableName")?.Value ?? "";
+                    var direction = pb.Attribute(sqlTask + "ParameterDirection")?.Value ?? pb.Attribute("ParameterDirection")?.Value ?? "Input";
+                    if (!string.IsNullOrEmpty(varName))
+                        bindings.Add($"@{paramName} ← {varName} ({direction})");
+                }
+                foreach (var rb in sqlData.Descendants().Where(x => x.Name.LocalName == "ResultBinding"))
+                {
+                    var resultName = rb.Attribute(sqlTask + "ResultName")?.Value ?? rb.Attribute("ResultName")?.Value ?? "0";
+                    var varName = rb.Attribute(sqlTask + "DtsVariableName")?.Value ?? rb.Attribute("DtsVariableName")?.Value ?? "";
+                    if (!string.IsNullOrEmpty(varName))
+                        bindings.Add($"Result[{resultName}] → {varName}");
+                }
+
                 var componentId = taskNode.Id + "_sql";
                 _graph.Components.Add(new ComponentNode
                 {
@@ -542,7 +579,8 @@ namespace SsisLineage.Core
                     PackageId = packageNode.Id,
                     TaskId = taskNode.Id,
                     ConnectionManager = connection,
-                    SqlQueryOrTable = sqlSource
+                    SqlQueryOrTable = sqlSource,
+                    ParameterBindings = bindings
                 });
 
                 if (string.IsNullOrWhiteSpace(sqlSource)) return;
@@ -556,8 +594,10 @@ namespace SsisLineage.Core
                 }
 
                 // Inline SQL — parse for column lineage (INSERT/UPDATE/DELETE/MERGE/SELECT INTO,
-                // CTEs, dynamic SQL), same as the native path.
-                var sqlRecords = SqlProcedureParser.Parse(sqlSource, connection, "LocalServer");
+                // CTEs, dynamic SQL), same as the native path. OLE DB positional parameters (?)
+                // are substituted so ScriptDom can parse the statement.
+                var parsableSql = SqlProcedureParser.ReplacePositionalParameters(sqlSource);
+                var sqlRecords = SqlProcedureParser.Parse(parsableSql, connection, "LocalServer");
                 foreach (var rec in sqlRecords)
                 {
                     _graph.ColumnMappings.Add(BuildSqlTaskColumnMap(

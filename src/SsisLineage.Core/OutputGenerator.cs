@@ -14,7 +14,7 @@ namespace SsisLineage.Core
         public static string GenerateJson(LineageGraph graph)
         {
             var options = new JsonSerializerOptions { WriteIndented = true };
-            return JsonSerializer.Serialize(graph, options);
+            return RedactSecrets(JsonSerializer.Serialize(graph, options));
         }
 
         public static string GenerateYaml(LineageGraph graph)
@@ -22,7 +22,7 @@ namespace SsisLineage.Core
             var serializer = new SerializerBuilder()
                 .WithNamingConvention(CamelCaseNamingConvention.Instance)
                 .Build();
-            return serializer.Serialize(graph);
+            return RedactSecrets(serializer.Serialize(graph));
         }
 
         public static string GenerateCypher(LineageGraph graph)
@@ -106,7 +106,7 @@ namespace SsisLineage.Core
                               $"CREATE (c1)-[:MAPS_TO {{srcCol: '{Escape(map.SourceColumnName)}', destCol: '{Escape(map.TargetColumnName)}', expr: '{Escape(map.SourceExpression)}', opType: '{Escape(map.OperationType)}'}}]->(c2);");
             }
 
-            return sb.ToString();
+            return RedactSecrets(sb.ToString());
         }
 
         public static string GenerateMarkdownReport(LineageGraph graph)
@@ -165,7 +165,7 @@ namespace SsisLineage.Core
                 sb.AppendLine($"| {pkgName} | {taskName} | {map.SourceComponentName} | `{map.SourceColumnName}` | {map.TargetComponentName} | `{map.TargetColumnName}` | {map.OperationType} |");
             }
 
-            return sb.ToString();
+            return RedactSecrets(sb.ToString());
         }
 
         public static string GenerateHtmlReport(LineageGraph graph)
@@ -289,7 +289,7 @@ namespace SsisLineage.Core
             sb.AppendLine("</body>");
             sb.AppendLine("</html>");
 
-            return sb.ToString();
+            return RedactSecrets(sb.ToString());
         }
 
         /// <summary>
@@ -360,7 +360,7 @@ namespace SsisLineage.Core
                     CsvEscape(map.JoinDetails)));
             }
 
-            return sb.ToString();
+            return RedactSecrets(sb.ToString());
         }
 
         /// <summary>
@@ -400,7 +400,7 @@ namespace SsisLineage.Core
                     CsvEscape(s.JoinDetails)));
             }
 
-            return sb.ToString();
+            return RedactSecrets(sb.ToString());
         }
 
         public static string GenerateHtmlFragment(LineageGraph graph)
@@ -582,7 +582,191 @@ namespace SsisLineage.Core
             sb.AppendLine("};");
             sb.AppendLine("</script>");
 
-            return sb.ToString();
+            return RedactSecrets(sb.ToString());
+        }
+
+        // ── secret redaction ─────────────────────────────────────────────────
+
+        private static readonly System.Text.RegularExpressions.Regex SecretRegex = new(
+            @"(?i)\b(password|pwd|accountkey|account key|sharedaccesskey|secret|apikey|api key|token)\s*=\s*[^;""'\r\n}\]]+",
+            System.Text.RegularExpressions.RegexOptions.Compiled);
+
+        /// <summary>
+        /// Scrubs credential values (Password=…, PWD=…, AccountKey=…, etc.) from any export
+        /// text so connection-string secrets never leak into shared lineage outputs.
+        /// </summary>
+        public static string RedactSecrets(string content)
+        {
+            if (string.IsNullOrEmpty(content)) return content;
+            return SecretRegex.Replace(content, m =>
+                $"{m.Value[..m.Value.IndexOf('=')]}=***REDACTED***");
+        }
+
+        // ── Mermaid export ───────────────────────────────────────────────────
+
+        /// <summary>
+        /// Table-level lineage as a Mermaid flowchart — renders directly in GitHub
+        /// READMEs, wikis, and docs. One node per table/stage, one edge per distinct
+        /// source→target flow labelled with its operation.
+        /// </summary>
+        public static string GenerateMermaid(LineageGraph graph)
+        {
+            var nodeIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var edges = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var sb = new StringBuilder();
+            sb.AppendLine("flowchart LR");
+
+            string NodeId(string label)
+            {
+                if (!nodeIds.TryGetValue(label, out var id))
+                {
+                    id = $"n{nodeIds.Count}";
+                    nodeIds[label] = id;
+                    sb.AppendLine($"    {id}[\"{label.Replace("\"", "'")}\"]");
+                }
+                return id;
+            }
+
+            static string SideLabel(string schema, string table, string componentName)
+            {
+                if (string.IsNullOrEmpty(table) && !string.IsNullOrEmpty(componentName))
+                {
+                    var parts = componentName.Split('.', 2);
+                    if (parts.Length == 2) { schema = parts[0]; table = parts[1]; }
+                    else table = componentName;
+                }
+                return string.IsNullOrEmpty(schema) ? table : $"{schema}.{table}";
+            }
+
+            static string SimplifyOp(string op)
+            {
+                if (string.IsNullOrEmpty(op)) return "";
+                var s = op.StartsWith("SQL_PROC_", StringComparison.OrdinalIgnoreCase)
+                    ? op["SQL_PROC_".Length..] : op;
+                return s == "XML_FALLBACK" ? "DATA FLOW" : s.Replace('_', ' ');
+            }
+
+            foreach (var map in graph.ColumnMappings)
+            {
+                var src = SideLabel(map.SourceSchema, map.SourceTable, map.SourceComponentName);
+                var tgt = SideLabel(map.TargetSchema, map.TargetTable, map.TargetComponentName);
+                if (string.IsNullOrEmpty(src) || string.IsNullOrEmpty(tgt) ||
+                    string.Equals(src, tgt, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var op = SimplifyOp(map.OperationType);
+                var key = $"{src}|{tgt}|{op}";
+                if (!edges.Add(key)) continue;
+
+                var line = string.IsNullOrEmpty(op)
+                    ? $"    {NodeId(src)} --> {NodeId(tgt)}"
+                    : $"    {NodeId(src)} -->|{op}| {NodeId(tgt)}";
+                sb.AppendLine(line);
+            }
+
+            return RedactSecrets(sb.ToString());
+        }
+
+        // ── OpenLineage export ───────────────────────────────────────────────
+
+        /// <summary>
+        /// Emits OpenLineage 1.x COMPLETE run events (one per task that produced column
+        /// mappings) with columnLineage facets, for ingestion into Marquez, Microsoft
+        /// Purview (via OpenLineage connectors), DataHub, and similar catalogs.
+        /// </summary>
+        public static string GenerateOpenLineage(LineageGraph graph, string producer = "https://github.com/okutue/SSIS-Project-Documentation")
+        {
+            static string SideLabel(string schema, string table, string componentName)
+            {
+                if (string.IsNullOrEmpty(table) && !string.IsNullOrEmpty(componentName))
+                {
+                    var parts = componentName.Split('.', 2);
+                    if (parts.Length == 2) { schema = parts[0]; table = parts[1]; }
+                    else table = componentName;
+                }
+                return string.IsNullOrEmpty(schema) ? table : $"{schema}.{table}";
+            }
+
+            static string Namespace(string server, string database)
+            {
+                var srv = string.IsNullOrEmpty(server) ? "sqlserver" : server;
+                return string.IsNullOrEmpty(database) ? srv : $"sqlserver://{srv}/{database}";
+            }
+
+            var eventTime = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
+            var events = new List<object>();
+
+            foreach (var taskGroup in graph.ColumnMappings.GroupBy(m => m.TaskId))
+            {
+                var task = graph.Tasks.Find(t => t.Id == taskGroup.Key);
+                var pkg = graph.Packages.Find(p => p.Id == (task?.PackageId ?? taskGroup.First().PackageId));
+                var jobName = $"{pkg?.Name ?? "package"}.{task?.Name ?? "task"}";
+
+                var inputs = taskGroup
+                    .Select(m => new { Ns = Namespace(m.SourceServer, m.SourceDatabase), Name = SideLabel(m.SourceSchema, m.SourceTable, m.SourceComponentName) })
+                    .Where(x => !string.IsNullOrEmpty(x.Name))
+                    .DistinctBy(x => $"{x.Ns}|{x.Name}".ToLowerInvariant())
+                    .Select(x => (object)new { @namespace = x.Ns, name = x.Name })
+                    .ToList();
+
+                var outputs = taskGroup
+                    .Where(m => !string.IsNullOrEmpty(SideLabel(m.TargetSchema, m.TargetTable, m.TargetComponentName)))
+                    .GroupBy(m => $"{Namespace(m.TargetServer, m.TargetDatabase)}|{SideLabel(m.TargetSchema, m.TargetTable, m.TargetComponentName)}".ToLowerInvariant())
+                    .Select(g =>
+                    {
+                        var first = g.First();
+                        var ns = Namespace(first.TargetServer, first.TargetDatabase);
+                        var name = SideLabel(first.TargetSchema, first.TargetTable, first.TargetComponentName);
+                        var fields = g
+                            .Where(m => !string.IsNullOrEmpty(m.TargetColumnName) && m.TargetColumnName != "*")
+                            .GroupBy(m => m.TargetColumnName, StringComparer.OrdinalIgnoreCase)
+                            .ToDictionary(
+                                fg => fg.Key,
+                                fg => (object)new
+                                {
+                                    inputFields = fg
+                                        .Where(m => !string.IsNullOrEmpty(m.SourceColumnName))
+                                        .Select(m => (object)new
+                                        {
+                                            @namespace = Namespace(m.SourceServer, m.SourceDatabase),
+                                            name = SideLabel(m.SourceSchema, m.SourceTable, m.SourceComponentName),
+                                            field = m.SourceColumnName
+                                        })
+                                        .ToList()
+                                });
+
+                        return (object)new
+                        {
+                            @namespace = ns,
+                            name,
+                            facets = new
+                            {
+                                columnLineage = new
+                                {
+                                    _producer = producer,
+                                    _schemaURL = "https://openlineage.io/spec/facets/1-0-1/ColumnLineageDatasetFacet.json",
+                                    fields
+                                }
+                            }
+                        };
+                    })
+                    .ToList();
+
+                events.Add(new
+                {
+                    eventType = "COMPLETE",
+                    eventTime,
+                    producer,
+                    schemaURL = "https://openlineage.io/spec/1-0-5/OpenLineage.json",
+                    run = new { runId = Guid.NewGuid().ToString() },
+                    job = new { @namespace = $"ssis://{pkg?.Name ?? "project"}", name = jobName },
+                    inputs,
+                    outputs
+                });
+            }
+
+            var json = JsonSerializer.Serialize(events, new JsonSerializerOptions { WriteIndented = true });
+            return RedactSecrets(json);
         }
 
         private static string CsvEscape(string value)

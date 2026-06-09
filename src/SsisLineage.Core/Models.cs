@@ -44,6 +44,8 @@ namespace SsisLineage.Core.Models
         public string TaskId { get; set; } = "";
         public string ConnectionManager { get; set; } = ""; // Connection name if applicable
         public string SqlQueryOrTable { get; set; } = ""; // Table, SQL Query or referenced Stored Procedure
+        /// <summary>Execute SQL Task parameter/result bindings, e.g. "@0 ← User::StartDate (Input)".</summary>
+        public List<string> ParameterBindings { get; set; } = new();
     }
 
     public class ColumnMap

@@ -15,6 +15,17 @@ namespace SsisLineage.Core
     /// <summary>One autocomplete result — a distinct table or column found anywhere in the graph.</summary>
     public sealed record SearchHit(SearchScope Scope, string Key, string Display);
 
+    /// <summary>Which way to expand a trace from the seed node.</summary>
+    public enum TraceDirection
+    {
+        /// <summary>Full lineage: upstream to ultimate sources AND downstream to final targets.</summary>
+        Both,
+        /// <summary>Origins only — where the data comes from.</summary>
+        Upstream,
+        /// <summary>Impact analysis — everything downstream that this node feeds.</summary>
+        Downstream
+    }
+
     /// <summary>One hop of a traced lineage path (a single source-column → target-column edge).</summary>
     public sealed class TraceStep
     {
@@ -238,7 +249,7 @@ namespace SsisLineage.Core
 
         // ── trace ───────────────────────────────────────────────────────────
 
-        public TraceResult Trace(SearchHit hit)
+        public TraceResult Trace(SearchHit hit, TraceDirection direction = TraceDirection.Both)
         {
             if (hit == null) return new TraceResult();
 
@@ -247,8 +258,10 @@ namespace SsisLineage.Core
                 : new List<string> { hit.Key };
 
             var collected = new HashSet<int>();
-            Walk(seeds, collected, _incoming, e => e.Source.FullKey);   // upstream
-            Walk(seeds, collected, _outgoing, e => e.Target.FullKey);   // downstream
+            if (direction != TraceDirection.Downstream)
+                Walk(seeds, collected, _incoming, e => e.Source.FullKey);   // upstream
+            if (direction != TraceDirection.Upstream)
+                Walk(seeds, collected, _outgoing, e => e.Target.FullKey);   // downstream
 
             var edgeList = collected.Select(i => _edges[i]).ToList();
             var rank = ComputeRanks(edgeList);

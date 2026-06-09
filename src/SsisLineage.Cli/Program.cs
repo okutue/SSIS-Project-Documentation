@@ -1,12 +1,16 @@
 using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Text.Json;
 using SsisLineage.Core;
+using SsisLineage.Core.Models;
 
 namespace SsisLineage.Cli
 {
     class Program
     {
-        static void Main(string[] args)
+        static int Main(string[] args)
         {
             Console.WriteLine("========================================");
             Console.WriteLine("    SSIS Project Lineage Utility");
@@ -15,26 +19,108 @@ namespace SsisLineage.Cli
             if (args.Length == 0 || args[0].Equals("help", StringComparison.OrdinalIgnoreCase) || args[0].Equals("--help", StringComparison.OrdinalIgnoreCase))
             {
                 PrintUsage();
-                return;
+                return 0;
             }
 
             if (args[0].Equals("scan", StringComparison.OrdinalIgnoreCase))
             {
-                RunScan(args.Skip(1).ToArray());
+                return RunScan(args.Skip(1).ToArray());
             }
-            else
+
+            if (args[0].Equals("diff", StringComparison.OrdinalIgnoreCase))
             {
-                Console.WriteLine($"Unknown command: {args[0]}");
+                return RunDiff(args.Skip(1).ToArray());
+            }
+
+            Console.WriteLine($"Unknown command: {args[0]}");
+            PrintUsage();
+            return 2;
+        }
+
+        /// <summary>
+        /// Compares two lineage.json exports (e.g. main vs PR branch) and reports drift.
+        /// Exit codes: 0 = no changes, 1 = changes detected (with --fail-on-changes), 2 = error.
+        /// </summary>
+        static int RunDiff(string[] diffArgs)
+        {
+            var positional = new List<string>();
+            string? outputPath = null;
+            var failOnChanges = false;
+
+            for (int i = 0; i < diffArgs.Length; i++)
+            {
+                if ((diffArgs[i] == "--output" || diffArgs[i] == "-o") && i + 1 < diffArgs.Length)
+                {
+                    outputPath = diffArgs[++i];
+                }
+                else if (diffArgs[i] == "--fail-on-changes")
+                {
+                    failOnChanges = true;
+                }
+                else
+                {
+                    positional.Add(diffArgs[i]);
+                }
+            }
+
+            if (positional.Count != 2)
+            {
+                Console.WriteLine("[Error] diff requires exactly two lineage.json files: diff <old.json> <new.json>");
                 PrintUsage();
+                return 2;
+            }
+
+            try
+            {
+                var oldGraph = JsonSerializer.Deserialize<LineageGraph>(File.ReadAllText(positional[0])) ?? new LineageGraph();
+                var newGraph = JsonSerializer.Deserialize<LineageGraph>(File.ReadAllText(positional[1])) ?? new LineageGraph();
+
+                var diff = LineageDiff.Compare(oldGraph, newGraph);
+                var markdown = LineageDiff.GenerateMarkdown(diff);
+
+                Console.WriteLine(markdown);
+                if (!string.IsNullOrEmpty(outputPath))
+                {
+                    File.WriteAllText(outputPath, markdown);
+                    Console.WriteLine($"[*] Diff report written to: {Path.GetFullPath(outputPath)}");
+                }
+
+                if (diff.HasChanges && failOnChanges)
+                {
+                    Console.WriteLine($"[!] {diff.TotalChanges} lineage change(s) detected — failing as requested.");
+                    return 1;
+                }
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Fatal Error] Diff failed: {ex.Message}");
+                return 2;
             }
         }
 
-        static void RunScan(string[] scanArgs)
+        static int RunScan(string[] scanArgs)
         {
             var options = new LineageScanOptions();
 
             for (int i = 0; i < scanArgs.Length; i++)
             {
+                if (scanArgs[i] == "--variable-overrides" && i + 1 < scanArgs.Length)
+                {
+                    var overridesFile = scanArgs[++i];
+                    try
+                    {
+                        options.VariableOverrides = JsonSerializer.Deserialize<Dictionary<string, string>>(
+                            File.ReadAllText(overridesFile)) ?? new Dictionary<string, string>();
+                        Console.WriteLine($"[*] Loaded {options.VariableOverrides.Count} variable override(s) from {overridesFile}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[Error] Failed to read variable overrides from {overridesFile}: {ex.Message}");
+                        return 2;
+                    }
+                    continue;
+                }
                 if ((scanArgs[i] == "--project-path" || scanArgs[i] == "-p") && i + 1 < scanArgs.Length)
                 {
                     options.ProjectPath = scanArgs[++i];
@@ -65,7 +151,7 @@ namespace SsisLineage.Cli
             {
                 Console.WriteLine("[Error] Missing required arguments: --project-path and --start-package are required.");
                 PrintUsage();
-                return;
+                return 2;
             }
 
             try
@@ -89,20 +175,23 @@ namespace SsisLineage.Cli
                 Console.WriteLine($"   Components: {graph.Components.Count}");
                 Console.WriteLine($"   Mappings:   {graph.ColumnMappings.Count}");
                 Console.WriteLine("========================================");
+                return 0;
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"[Fatal Error] Scan failed: {ex.Message}");
                 Console.WriteLine(ex.StackTrace);
+                return 2;
             }
         }
 
         static void PrintUsage()
         {
             Console.WriteLine("Usage:");
-            Console.WriteLine("  ssis-lineage scan --project-path <path> --start-package <name> [--output <dir>] [--no-cache] [--include-sql-procedures] [--sql-connection-string <connection-string>]");
+            Console.WriteLine("  ssis-lineage scan --project-path <path> --start-package <name> [--output <dir>] [--no-cache] [--include-sql-procedures] [--sql-connection-string <connection-string>] [--variable-overrides <file.json>]");
+            Console.WriteLine("  ssis-lineage diff <old-lineage.json> <new-lineage.json> [--output <report.md>] [--fail-on-changes]");
             Console.WriteLine();
-            Console.WriteLine("Options:");
+            Console.WriteLine("scan options:");
             Console.WriteLine("  -p, --project-path    Path to the SSIS .dtproj file or its containing directory");
             Console.WriteLine("  -s, --start-package   Name of the starting entry package (e.g. Master.dtsx)");
             Console.WriteLine("  -o, --output          Directory where lineage outputs will be written (default: ./lineage-output)");
@@ -111,6 +200,15 @@ namespace SsisLineage.Cli
             Console.WriteLine("                         Connect to SQL Server and retrieve stored procedure definitions for SQL lineage");
             Console.WriteLine("      --sql-connection-string");
             Console.WriteLine("                         SQL Server connection string used only when --include-sql-procedures is set");
+            Console.WriteLine("      --variable-overrides");
+            Console.WriteLine("                         JSON file of \"Namespace::Name\": \"value\" pairs applied over design-time values");
+            Console.WriteLine("                         (e.g. values extracted from an SSIS catalog environment — see docs/CI.md)");
+            Console.WriteLine();
+            Console.WriteLine("diff options:");
+            Console.WriteLine("  -o, --output           Write the markdown diff report to a file");
+            Console.WriteLine("      --fail-on-changes  Exit with code 1 when lineage changed (for CI gates)");
+            Console.WriteLine();
+            Console.WriteLine("Outputs: lineage.json, lineage.yaml, lineage.cypher, execution-flow.md, lineage-report.html, lineage.mmd (Mermaid), lineage.openlineage.json (OpenLineage)");
         }
     }
 }

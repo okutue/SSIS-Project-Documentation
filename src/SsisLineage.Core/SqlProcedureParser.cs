@@ -60,6 +60,58 @@ namespace SsisLineage.Core
             return records;
         }
 
+        /// <summary>
+        /// Replaces OLE DB positional parameter markers (?) with named variables (@P0, @P1, …)
+        /// so ScriptDom can parse Execute SQL Task statements. Markers inside string literals
+        /// and comments are left untouched.
+        /// </summary>
+        public static string ReplacePositionalParameters(string sql)
+        {
+            if (string.IsNullOrEmpty(sql) || !sql.Contains('?')) return sql;
+
+            var sb = new System.Text.StringBuilder(sql.Length + 16);
+            var inString = false;
+            var inLineComment = false;
+            var inBlockComment = false;
+            var paramIndex = 0;
+
+            for (var i = 0; i < sql.Length; i++)
+            {
+                var c = sql[i];
+                if (inLineComment)
+                {
+                    if (c == '\n') inLineComment = false;
+                }
+                else if (inBlockComment)
+                {
+                    if (c == '*' && i + 1 < sql.Length && sql[i + 1] == '/') { inBlockComment = false; sb.Append(c); c = sql[++i]; }
+                }
+                else if (inString)
+                {
+                    if (c == '\'') inString = false;
+                }
+                else if (c == '\'')
+                {
+                    inString = true;
+                }
+                else if (c == '-' && i + 1 < sql.Length && sql[i + 1] == '-')
+                {
+                    inLineComment = true;
+                }
+                else if (c == '/' && i + 1 < sql.Length && sql[i + 1] == '*')
+                {
+                    inBlockComment = true;
+                }
+                else if (c == '?')
+                {
+                    sb.Append("@P").Append(paramIndex++);
+                    continue;
+                }
+                sb.Append(c);
+            }
+            return sb.ToString();
+        }
+
         // ── Statement dispatcher ────────────────────────────────────────────────
 
         private static void ProcessStatements(

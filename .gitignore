@@ -29,3 +29,7 @@ tools/
 
 # Dev-only graph test harness
 src/SsisLineage.UI/wwwroot/_graphtest.html
+
+# Local release artifacts
+publish/
+SsisLineage-v*-win-x64.zip

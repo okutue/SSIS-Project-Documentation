@@ -120,14 +120,13 @@
                         @(isGenerating ? "Generating..." : "Generate Report")
                     </MudButton>
 
-                    <MudFileUpload T="IBrowserFile" FilesChanged="LoadReportFile" Accept=".json" Class="mt-1">
-                        <ActivatorContent>
-                            <MudButton Variant="Variant.Text" Size="Size.Small" FullWidth="true"
-                                       StartIcon="@Icons.Material.Filled.FileOpen">
-                                Load saved report…
-                            </MudButton>
-                        </ActivatorContent>
-                    </MudFileUpload>
+                    <MudFileUpload T="IBrowserFile" @ref="_reportUpload" FilesChanged="LoadReportFile"
+                                   Accept=".json" Hidden="true" />
+                    <MudButton Variant="Variant.Text" Size="Size.Small" FullWidth="true" Class="mt-1"
+                               StartIcon="@Icons.Material.Filled.FileOpen"
+                               OnClick="@(() => _reportUpload?.OpenFilePickerAsync() ?? Task.CompletedTask)">
+                        Load saved report…
+                    </MudButton>
 
                     @if (isGenerating)
                     {
@@ -417,6 +416,7 @@
     };
 
     private IReadOnlyList<RecentProject> _recents = Array.Empty<RecentProject>();
+    private MudFileUpload<IBrowserFile>? _reportUpload;
 
     protected override void OnInitialized()
     {
@@ -424,8 +424,16 @@
         // Restore the last generated report so returning from the detailed view
         // (or re-navigating home) keeps the summary, graph, and grid.
         reportData ??= LineageService.GetPublishedReport();
-        // Auto-collapse the controls panel when a report is already available on entry.
-        if (reportData != null) _controlsExpanded = false;
+        if (reportData != null)
+        {
+            // Auto-collapse the controls panel when a report is already available on entry.
+            _controlsExpanded = false;
+            // Restore the inputs that produced the report — the page fields reset on
+            // navigation, which both emptied the form and broke the entry-package
+            // highlight (the render call passes startPackage to mark the start node).
+            if (string.IsNullOrEmpty(projectPath)) projectPath = reportData.ProjectPath;
+            if (string.IsNullOrEmpty(startPackage)) startPackage = reportData.StartPackage;
+        }
     }
 
     private void UseRecent(RecentProject r)

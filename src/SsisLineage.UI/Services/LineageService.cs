@@ -44,6 +44,10 @@ namespace SsisLineage.UI.Services
         public string MarkdownExport { get; set; } = "";
         public string MermaidExport { get; set; } = "";
         public string OpenLineageExport { get; set; } = "";
+        /// <summary>Inputs that produced this report — restored into the form (and used for
+        /// the entry-package highlight) when returning to the page after navigation.</summary>
+        public string ProjectPath { get; set; } = "";
+        public string StartPackage { get; set; } = "";
     }
 
     public class LineageService
@@ -99,6 +103,7 @@ namespace SsisLineage.UI.Services
                     result.Project.ProjectDirectory,
                     result.CacheHit,
                     startPackage);
+                reportData.ProjectPath = projectPath;
 
                 PublishReport(reportData);
                 return reportData;
@@ -148,7 +153,9 @@ namespace SsisLineage.UI.Services
                 CsvExport = OutputGenerator.GenerateColumnLineageCsv(graph),
                 MarkdownExport = OutputGenerator.GenerateMarkdownReport(graph),
                 MermaidExport = OutputGenerator.GenerateMermaid(graph),
-                OpenLineageExport = OutputGenerator.GenerateOpenLineage(graph)
+                OpenLineageExport = OutputGenerator.GenerateOpenLineage(graph),
+                ProjectPath = projectDirectory,
+                StartPackage = startPackage
             };
         }
 

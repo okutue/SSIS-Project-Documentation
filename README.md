@@ -6,9 +6,11 @@
 [![Releases](https://img.shields.io/github/v/release/okutue/SSIS-Project-Documentation?include_prereleases)](https://github.com/okutue/SSIS-Project-Documentation/releases)
 [![Offline](https://img.shields.io/badge/offline-100%25%20local-brightgreen)](https://github.com/okutue/SSIS-Project-Documentation#privacy--offline)
 
-Scans Microsoft SSIS projects (`.dtproj` / `.dtsx`), builds a lineage graph (packages, tasks, data-flow components, column mappings, execution and data-flow edges), optionally enriches lineage from SQL Server stored procedures, and exports JSON, YAML, Neo4j Cypher, Markdown, HTML, CSV, Excel, and PNG diagrams.
+Scans Microsoft SSIS projects (`.dtproj` / `.dtsx`), builds a lineage graph (packages, tasks, data-flow components, column mappings, execution and data-flow edges), optionally enriches lineage from SQL Server stored procedures, and exports JSON, YAML, Neo4j Cypher, Markdown, HTML, CSV, Excel, Mermaid, OpenLineage, and PNG diagrams.
 
-Key UI features: interactive data-flow diagram (object and column views, entry-package highlight, fullscreen, PNG export), **Lineage Search** (trace any column or table — including mid-stream/staging nodes — end-to-end from ultimate source to final target, with CSV/PNG export), and a tabbed **Detailed Report** (sortable/filterable grids, step-grouped column mappings, one-click Excel workbook export).
+Key UI features: interactive data-flow diagram (object and column views, entry-package highlight, fullscreen, PNG export), **Lineage Search** (trace any column or table — including mid-stream/staging nodes — end-to-end, with **impact-analysis** (downstream-only) and **origins** (upstream-only) modes and CSV/PNG export), a tabbed **Detailed Report** (sortable/filterable grids, step-grouped column mappings, one-click Excel workbook export), and **save/load reports** (`.lineage.json`) so a scan can be reopened or shared without re-scanning.
+
+CI integration: the CLI `diff` command compares two scans and fails the build on **lineage drift** — see [`docs/CI.md`](docs/CI.md).
 
 ## What gets parsed
 
@@ -28,11 +30,10 @@ Key UI features: interactive data-flow diagram (object and column views, entry-p
 - **Third-party / custom components** (CozyRoc, KingswaySoft, ZappySys, …) — captured as nodes with whatever metadata the package exposes; column-level lineage may be incomplete (flagged with a warning).
 - **Dynamic SQL built at runtime** — only variable values known at design time can be reconstructed. SQL assembled from runtime query results, environment-specific configuration, or expressions beyond simple concatenation is not traced.
 - **SSIS expression language** — evaluation covers variable substitution and string concatenation only; functions/conditionals in expressions fall back to the raw expression text.
-- **Event handlers** (OnError, OnPostExecute, …) — executables inside event handlers are not walked.
-- **Execute SQL Task parameter/result bindings** — parameter mappings and result-set bindings to variables are not traced as lineage.
+- **Execute SQL Task parameter/result bindings** — bindings (`@0 ← User::Var`) are captured and shown in the component drill-down, and positional `?` markers are substituted so the SQL parses; the bindings themselves are informational, not traced as column lineage.
 - **OLE DB Command transformation** — its SQL is captured, but per-parameter column mappings are not expanded.
-- **Native DTS runtime on .NET 10** — the Microsoft DTS assemblies are .NET Framework-only, so packages are parsed via the built-in XML parser (results are equivalent; the informational console message is expected).
-- **Design-time values** — connection strings, variables, and parameters reflect what is saved in the project, not runtime overrides from SSIS catalog environments or configurations.
+- **Native DTS runtime on .NET 10** — the Microsoft DTS assemblies are .NET Framework-only, so packages are parsed via the built-in XML parser (results are equivalent; the informational console message is expected). Event handlers (OnError, OnPostExecute, …) are walked by both parsers.
+- **Design-time values** — connection strings, variables, and parameters reflect what is saved in the project by default. Use `scan --variable-overrides <file.json>` to apply values extracted from an SSIS catalog environment (see [`docs/CI.md`](docs/CI.md)).
 
 ## Requirements
 
@@ -82,6 +83,16 @@ dotnet run --project src/SsisLineage.Cli -- scan `
   --start-package "<root-package>.dtsx" `
   --output "./lineage-output"
 ```
+
+Compare two scans for lineage drift (CI gate — see [`docs/CI.md`](docs/CI.md)):
+
+```powershell
+dotnet run --project src/SsisLineage.Cli -- diff `
+  .\lineage-base\lineage.json .\lineage-pr\lineage.json `
+  --output lineage-diff.md --fail-on-changes
+```
+
+Scan outputs: `lineage.json`, `lineage.yaml`, `lineage.cypher`, `execution-flow.md`, `lineage-report.html`, `lineage.mmd` (Mermaid), `lineage.openlineage.json` (OpenLineage). All exports automatically redact credential values.
 
 Neo4j graph schema: [`docs/neo4j-schema.md`](docs/neo4j-schema.md).
 

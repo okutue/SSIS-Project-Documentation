@@ -74,8 +74,10 @@ namespace SsisLineage.UI.Services
             return CurrentReportData ?? _reportStore.Get(_session.SessionKey);
         }
 
-        public LineageReportData GenerateLineageReport(string projectPath, string startPackage, 
-            bool useCache = true, bool includeSqlProcedures = false, string sqlConnectionString = "")
+        public LineageReportData GenerateLineageReport(string projectPath, string startPackage,
+            bool useCache = true, bool includeSqlProcedures = false, string sqlConnectionString = "",
+            Dictionary<string, string>? linkedServerMap = null, bool autoResolveLinkedServers = true,
+            Dictionary<string, string>? sqlVariableValues = null)
         {
             try
             {
@@ -87,6 +89,9 @@ namespace SsisLineage.UI.Services
                     UseCache = useCache,
                     IncludeSqlProcedures = includeSqlProcedures,
                     SqlConnectionString = sqlConnectionString,
+                    LinkedServerMap = linkedServerMap ?? new Dictionary<string, string>(),
+                    AutoResolveLinkedServers = autoResolveLinkedServers,
+                    SqlVariableValues = sqlVariableValues ?? new Dictionary<string, string>(),
                     OutputDirectory = Path.Combine(Path.GetTempPath(), "ssis-lineage-temp")
                 };
 

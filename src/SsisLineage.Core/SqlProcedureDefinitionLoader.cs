@@ -61,6 +61,44 @@ namespace SsisLineage.Core
             return nameCmd.ExecuteScalar() as string;
         }
 
+        /// <summary>
+        /// Returns linked-server name → data source (actual server) from sys.servers on this
+        /// connection. Returns an empty map when the query fails (offline, no permission) —
+        /// callers treat the map as best-effort.
+        /// </summary>
+        public Dictionary<string, string> TryLoadLinkedServerMap()
+        {
+            var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            if (string.IsNullOrWhiteSpace(_connectionString)) return map;
+
+            try
+            {
+                var effectiveConnectionString = NormalizeToSqlClientConnectionString(_connectionString);
+                using var connection = new SqlConnection(effectiveConnectionString);
+                connection.Open();
+
+                using var cmd = connection.CreateCommand();
+                cmd.CommandText = """
+                    SELECT name, data_source
+                    FROM sys.servers
+                    WHERE is_linked = 1
+                    """;
+                using var reader = cmd.ExecuteReader();
+                while (reader.Read())
+                {
+                    var name = reader.IsDBNull(0) ? "" : reader.GetString(0);
+                    var dataSource = reader.IsDBNull(1) ? "" : reader.GetString(1);
+                    if (!string.IsNullOrWhiteSpace(name) && !string.IsNullOrWhiteSpace(dataSource))
+                        map[name] = dataSource;
+                }
+            }
+            catch
+            {
+                // Best-effort: no linked-server resolution without a reachable connection.
+            }
+            return map;
+        }
+
         /// <summary>Returns (server, database) from any supported connection string format.</summary>
         public static (string Server, string Database) ExtractServerAndDatabase(string conn)
         {
@@ -89,7 +127,7 @@ namespace SsisLineage.Core
             catch { return ("", ""); }
         }
 
-        private string NormalizeToSqlClientConnectionString(string conn)
+        public static string NormalizeToSqlClientConnectionString(string conn)
         {
             if (string.IsNullOrWhiteSpace(conn)) return conn;
 

@@ -5,6 +5,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-06-10
+
+### Added
+- **Linked-server resolution** — linked-server names are auto-resolved to their actual server via `sys.servers` on each connection used, with an optional manual override map (CLI `--linked-servers <file.json>`, UI field, and an auto-map toggle)
+- **Live-schema column resolution** — unqualified columns in multi-table joins are resolved to their owning table from `INFORMATION_SCHEMA` when a connection is available (local tables automatically; remote/linked-server tables when SQL variable values are supplied); offline-safe, falling back to listing all candidate tables when unresolved
+- **SQL variable values** — `scan --sql-variables <file.json>` and a matching UI field supply stored-procedure variable values (e.g. server/database) so dynamic-SQL and `OPENQUERY` names resolve to their real sources; empty by default (offline)
+- **Dynamic SQL & remote queries** — nested dynamic SQL (`DECLARE`/`SET`) is composed and parsed, and `OPENQUERY`/`OPENROWSET` inner queries are traced so `SELECT * INTO` registers remote columns by name
+- **Lookup reference lineage** — Lookup transforms now trace their reference query/table columns back to source
+
+### Fixed
+- **MERGE lineage** — source tables (including linked-server multi-part names and derived-table subqueries) are resolved correctly, and `INSERT` values are paired positionally with their target columns so literals/functions no longer shift the mapping
+- **Cross-package lineage** — ADO NET sources/destinations and staging tables now reconcile across packages, so columns trace end-to-end from warehouse tables back through staging to their sources
+- **Procedure-backed data-flow sources** — sources whose SQL is a stored procedure now stitch to the procedure's internal lineage, so dimension/fact columns trace back to their source tables instead of dead-ending at the procedure
+- **Column-scoped tracing** — tracing a single column through a `SELECT *` step stays scoped to that column instead of expanding to every unrelated column
+- **Server/database accuracy** — trace and detailed-report rows show the resolved connection's server/database instead of placeholder values
+
 ## [1.1.1] - 2026-06-10
 
 ### Fixed
@@ -43,7 +59,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - CLI `scan` command with JSON, YAML, Neo4j Cypher, Markdown, and HTML export
 - MIT license
 
-[Unreleased]: https://github.com/okutue/SSIS-Project-Documentation/compare/v1.1.1...HEAD
+[Unreleased]: https://github.com/okutue/SSIS-Project-Documentation/compare/v1.1.2...HEAD
+[1.1.2]: https://github.com/okutue/SSIS-Project-Documentation/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/okutue/SSIS-Project-Documentation/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/okutue/SSIS-Project-Documentation/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/okutue/SSIS-Project-Documentation/releases/tag/v1.0.0

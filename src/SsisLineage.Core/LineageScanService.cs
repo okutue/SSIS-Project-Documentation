@@ -20,6 +20,30 @@ namespace SsisLineage.Core
         /// catalog environment — see docs/CI.md for the SSISDB query.
         /// </summary>
         public Dictionary<string, string> VariableOverrides { get; set; } = new();
+
+        /// <summary>
+        /// Linked-server name → actual server name (e.g. "LINKEDSRV" → "StagingServer").
+        /// Auto-resolved from sys.servers on every SQL connection used during the scan;
+        /// entries here override the auto-resolved values (useful offline, or when
+        /// data_source is an IP/alias that doesn't match the connection-string host).
+        /// </summary>
+        public Dictionary<string, string> LinkedServerMap { get; set; } = new();
+
+        /// <summary>
+        /// When true (default), linked-server names are resolved to their data source via
+        /// sys.servers on every SQL connection used during the scan. Disable to rely solely
+        /// on <see cref="LinkedServerMap"/> (or keep raw linked-server names in the output).
+        /// </summary>
+        public bool AutoResolveLinkedServers { get; set; } = true;
+
+        /// <summary>
+        /// Values for stored-procedure variables/parameters used to build dynamic SQL
+        /// (e.g. {"@Server":"LINKEDSRV", "@Database":"StagingDb"}). Empty by default (offline):
+        /// dynamic SQL keeps placeholder names. Supplying these makes OPENQUERY linked-server
+        /// and remote table names real so unqualified columns can be resolved to their owning
+        /// remote table. Keys are matched with or without a leading '@'.
+        /// </summary>
+        public Dictionary<string, string> SqlVariableValues { get; set; } = new();
     }
 
     public class LineageScanResult
@@ -87,7 +111,8 @@ namespace SsisLineage.Core
             }
             else
             {
-                var parser = new SsisPackageParser(projectInfo.ProjectDirectory, options.VariableOverrides);
+                var parser = new SsisPackageParser(projectInfo.ProjectDirectory, options.VariableOverrides,
+                    options.SqlVariableValues);
                 graph = parser.Parse(rootPackage.Path);
 
                 cache.CachedPackages[cacheKey] = new CachedPackageResult
@@ -124,7 +149,10 @@ namespace SsisLineage.Core
                 projectInfo.ProjectDirectory,
                 options.SqlConnectionString,
                 includeDataFlowComponents: options.IncludeSqlProcedures,
-                includeExecuteSqlTasks: true);
+                includeExecuteSqlTasks: true,
+                linkedServerMap: options.LinkedServerMap,
+                autoResolveLinkedServers: options.AutoResolveLinkedServers,
+                sqlVariableValues: options.SqlVariableValues);
 
             var outputFiles = WriteOutputs(graph, outputDirectory);
 

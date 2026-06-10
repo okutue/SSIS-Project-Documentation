@@ -112,6 +112,19 @@
                     {
                         <MudTextField @bind-Value="sqlConnectionString" Label="SQL connection string override (optional)"
                                       Variant="Variant.Outlined" Margin="Margin.Dense" Class="mt-2" Lines="2" />
+
+                        <MudCheckBox @bind-Value="autoResolveLinkedServers" Color="Color.Primary" Dense="true"
+                                     Label="Auto-map linked servers to actual server names (sys.servers)" />
+
+                        <MudTextField @bind-Value="linkedServerMapText" Label="Linked server mappings (optional)"
+                                      Placeholder="LINKEDSRV=StagingServer; OTHERLINK=RealHost"
+                                      HelperText="LinkedServerName=ActualServerName pairs separated by ; — overrides auto-mapped values"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense" Class="mt-2" Lines="2" />
+
+                        <MudTextField @bind-Value="sqlVariableValuesText" Label="SQL variable values (optional)"
+                                      Placeholder="@@Server=LINKEDSRV; @@Database=StagingDb"
+                                      HelperText="@@Variable=value pairs separated by ; — resolves OPENQUERY/dynamic-SQL names so unqualified columns map to their real source table"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense" Class="mt-2" Lines="2" />
                     }
 
                     <MudButton OnClick="GenerateReportAsync" Disabled="isGenerating" Variant="Variant.Filled"
@@ -396,6 +409,9 @@
     private string startPackage = "";
     private string sqlConnectionString = "";
     private bool includeSqlProcedures = true;
+    private bool autoResolveLinkedServers = true;
+    private string linkedServerMapText = "";
+    private string sqlVariableValuesText = "";
     private bool isGenerating = false;
     private bool _controlsExpanded = true;
     private int renderToken = 0;
@@ -574,7 +590,10 @@
                     startPackage,
                     false,   // useCache: always parse fresh — avoids stale package-hash cache
                     includeSqlProcedures,
-                    sqlConnectionString));
+                    sqlConnectionString,
+                    ParseLinkedServerMap(linkedServerMapText),
+                    autoResolveLinkedServers,
+                    ParseKeyValuePairs(sqlVariableValuesText)));
 
             graphFilterPackageId = "";
             graphFilterTaskId = "";
@@ -594,6 +613,29 @@
         {
             isGenerating = false;
         }
+    }
+
+    // Parses "LINKEDSRV=StagingServer; OTHERLINK=RealHost" (also newline-separated)
+    // into linked-server → actual-server pairs. Malformed segments are skipped.
+    private static Dictionary<string, string> ParseLinkedServerMap(string? text) => ParseKeyValuePairs(text);
+
+    // Parses "key=value; key2=value2" (also newline-separated) into a dictionary.
+    // Surrounding brackets are trimmed; malformed segments are skipped.
+    private static Dictionary<string, string> ParseKeyValuePairs(string? text)
+    {
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (string.IsNullOrWhiteSpace(text)) return map;
+
+        foreach (var segment in text.Split(new[] { ';', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries))
+        {
+            var pair = segment.Split('=', 2);
+            if (pair.Length != 2) continue;
+            var key = pair[0].Trim().Trim('[', ']');
+            var value = pair[1].Trim().Trim('[', ']');
+            if (key.Length > 0 && value.Length > 0)
+                map[key] = value;
+        }
+        return map;
     }
 
     private async Task LoadReportFile(IBrowserFile? file)

@@ -93,11 +93,13 @@ public class LineageTracerTests
                 TargetColumnName = "Email", OperationType = "SQL_PROC_SELECT",
                 ProcedureName = "stage.usp_Get_LoadCustomers"
             },
-            // Data-flow XML_FALLBACK: (component src1 = stage.usp_Get_LoadCustomers) → DW.Dim_Customers
+            // Data-flow XML_FALLBACK: proc-backed source side stays component-keyed (the
+            // enricher leaves schema/table empty for EXEC-backed components so this row
+            // stitches to the proc-internal record above); the display carries the proc name.
             new ColumnMap
             {
                 SourceComponentId = "src1", SourceComponentName = "stage.usp_Get_LoadCustomers",
-                SourceSchema = "stage", SourceTable = "usp_Get_LoadCustomers", SourceColumnName = "Email",
+                SourceColumnName = "Email",
                 TargetComponentId = "dst1", TargetComponentName = "DW.Dim_Customers",
                 TargetSchema = "DW", TargetTable = "Dim_Customers", TargetColumnName = "Email",
                 OperationType = "XML_FALLBACK"
@@ -122,6 +124,50 @@ public class LineageTracerTests
 
         // The proc-backed component renders as the proc, not the raw component name.
         Assert.Contains(result.Steps, s => s.TargetTable == "usp_Get_LoadCustomers" || s.SourceTable == "usp_Get_LoadCustomers");
+    }
+
+    // Regression: a proc-backed OLE DB Source must stay keyed by component on its data-flow
+    // (XML_FALLBACK) side so the proc's internal lineage stitches to it. The enricher must NOT
+    // stamp the proc name onto that side as a "table" — doing so re-keys it to a table node and
+    // severs the stitch, so DW.Dim_Customers.Email stops tracing back to source.Customers.
+    [Fact]
+    public void Proc_backed_source_left_component_keyed_still_stitches_to_real_table_destination()
+    {
+        var graph = new LineageGraph
+        {
+            Components =
+            {
+                new ComponentNode { Id = "src1", Name = "OLE DB Source", Type = "OLE DB Source" },
+                new ComponentNode { Id = "dst1", Name = "OLE DB Destination", Type = "OLE DB Destination" }
+            },
+            ColumnMappings =
+            {
+                // Proc internal (SELECT * FROM source.Customers) → component src1, table-less.
+                new ColumnMap
+                {
+                    SourceComponentId = "src1::source.Customers", SourceComponentName = "source.Customers",
+                    SourceSchema = "source", SourceTable = "Customers", SourceColumnName = "*",
+                    TargetComponentId = "src1", TargetComponentName = "stage.usp_Get_LoadCustomers",
+                    TargetColumnName = "*", OperationType = "SQL_PROC_SELECT",
+                    ProcedureName = "stage.usp_Get_LoadCustomers"
+                },
+                // Data flow: proc-backed source (component-keyed, NO table) → real-table destination.
+                new ColumnMap
+                {
+                    SourceComponentId = "src1", SourceComponentName = "OLE DB Source",
+                    SourceColumnName = "Email",
+                    TargetComponentId = "dst1", TargetComponentName = "DW.Dim_Customers",
+                    TargetSchema = "DW", TargetTable = "Dim_Customers", TargetColumnName = "Email",
+                    OperationType = "XML_FALLBACK"
+                }
+            }
+        };
+
+        var tracer = new LineageTracer(graph);
+        var hit = tracer.Search("DW.Dim_Customers.Email", SearchScope.Column).Single();
+        var result = tracer.Trace(hit, TraceDirection.Upstream);
+
+        Assert.Contains(result.Steps, s => s.SourceTable == "Customers" && s.SourceSchema == "source");
     }
 
     [Fact]

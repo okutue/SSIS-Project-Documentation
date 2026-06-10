@@ -9,7 +9,8 @@ namespace SsisLineage.Core
 {
     public class SqlProcedureParser
     {
-        public static List<SqlLineageRecord> Parse(string sqlScript, string defaultDatabase, string defaultServer)
+        public static List<SqlLineageRecord> Parse(string sqlScript, string defaultDatabase, string defaultServer,
+            IDictionary<string, string>? variableValues = null)
         {
             var records = new List<SqlLineageRecord>();
             if (string.IsNullOrWhiteSpace(sqlScript))
@@ -29,6 +30,19 @@ namespace SsisLineage.Core
             // Shared map of @varName → SQL text — populated by SET statements and consumed
             // by EXEC(@var) / EXEC sp_executesql @var calls anywhere in the same scope tree.
             var dynamicSqlMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+            // Seed caller-supplied parameter/variable values (e.g. @Server, @Database) so
+            // dynamic SQL composes real names instead of placeholders. Used to make
+            // OPENQUERY linked-server and remote table names resolvable; empty = offline.
+            if (variableValues != null)
+            {
+                foreach (var kv in variableValues)
+                {
+                    if (string.IsNullOrWhiteSpace(kv.Key)) continue;
+                    var key = kv.Key.StartsWith("@", StringComparison.Ordinal) ? kv.Key : "@" + kv.Key;
+                    dynamicSqlMap[key] = kv.Value ?? "";
+                }
+            }
 
             if (fragment is TSqlScript script)
             {
@@ -126,14 +140,27 @@ namespace SsisLineage.Core
             // Materialise so we can iterate twice (pre-pass + main pass).
             var stmtList = stmts is IList<TSqlStatement> l ? l : stmts.ToList();
 
-            // ── Pre-pass: harvest  SET @var = 'literal sql'  before processing EXEC ──
+            // ── Pre-pass: harvest  SET @var = 'literal sql'  and  DECLARE @var = '…'
+            // before processing EXEC. Variables referenced inside another variable's
+            // expression are inlined from the map (e.g. @OpenQuery embedding @SQL), so the
+            // composed text mirrors what EXEC(@var) actually runs.
             foreach (var stmt in stmtList)
             {
                 if (stmt is SetVariableStatement setVar)
                 {
-                    var sqlText = GetFullSqlFromExpression(setVar.Expression);
+                    var sqlText = GetFullSqlFromExpression(setVar.Expression, dynamicSqlMap);
                     if (!string.IsNullOrEmpty(sqlText))
                         dynamicSqlMap[setVar.Variable.Name] = sqlText;
+                }
+                else if (stmt is DeclareVariableStatement declare)
+                {
+                    foreach (var decl in declare.Declarations)
+                    {
+                        if (decl.Value == null) continue;
+                        var sqlText = GetFullSqlFromExpression(decl.Value, dynamicSqlMap);
+                        if (!string.IsNullOrEmpty(sqlText))
+                            dynamicSqlMap[decl.VariableName.Value] = sqlText;
+                    }
                 }
             }
 
@@ -341,19 +368,26 @@ namespace SsisLineage.Core
 
                                     var sourceTable  = "";
                                     var sourceSchema = "dbo";
+                                    var sourceDb     = defaultDatabase;
+                                    var sourceServer = defaultServer;
                                     if (sourceAlias != null && updAliasVisitor.Aliases.TryGetValue(sourceAlias, out var aliasTable))
                                     {
                                         sourceTable = aliasTable;
                                         if (updInfoVisitor.TableSchemas.TryGetValue(aliasTable, out var s))
                                             sourceSchema = s;
+                                        if (updInfoVisitor.TableParts.TryGetValue(aliasTable, out var parts))
+                                        {
+                                            sourceDb     = parts.Database ?? sourceDb;
+                                            sourceServer = parts.Server ?? sourceServer;
+                                        }
                                     }
 
                                     records.Add(new SqlLineageRecord
                                     {
                                         ProcedureName    = procName,
                                         OperationType    = "UPDATE",
-                                        SourceServer     = defaultServer,
-                                        SourceDatabase   = defaultDatabase,
+                                        SourceServer     = sourceServer,
+                                        SourceDatabase   = sourceDb,
                                         SourceSchema     = sourceSchema,
                                         SourceTable      = sourceTable,
                                         SourceColumnName = sourceColName,
@@ -537,14 +571,20 @@ namespace SsisLineage.Core
         }
 
         // ── Reconstruct a SQL string from a SET @var = <expr> right-hand side ──
+        // Variables already harvested into the map are inlined with their SQL text so the
+        // composed string matches what EXEC(@var) executes at runtime (nested dynamic SQL).
 
-        private static string? GetFullSqlFromExpression(ScalarExpression? expr) => expr switch
+        private static string? GetFullSqlFromExpression(
+            ScalarExpression? expr, Dictionary<string, string>? dynamicSqlMap = null) => expr switch
         {
             StringLiteral lit         => lit.Value,
-            VariableReference varRef  => varRef.Name,
+            VariableReference varRef  =>
+                dynamicSqlMap != null && dynamicSqlMap.TryGetValue(varRef.Name, out var mapped)
+                    ? mapped
+                    : varRef.Name,
             BinaryExpression bin      =>
-                (GetFullSqlFromExpression(bin.FirstExpression)  ?? "") +
-                (GetFullSqlFromExpression(bin.SecondExpression) ?? ""),
+                (GetFullSqlFromExpression(bin.FirstExpression, dynamicSqlMap)  ?? "") +
+                (GetFullSqlFromExpression(bin.SecondExpression, dynamicSqlMap) ?? ""),
             _                         => null
         };
 
@@ -632,26 +672,39 @@ namespace SsisLineage.Core
 
                                 var sourceTable  = "";
                                 var sourceSchema = tgtSchema;
+                                var sourceDb     = tgtDb;
+                                var sourceServer = defaultServer;
                                 if (sourceAlias != null &&
                                     tableAliasVisitor.Aliases.TryGetValue(sourceAlias, out var aliasTbl))
                                 {
                                     sourceTable  = aliasTbl;
                                     if (tableInfoVisitor.TableSchemas.TryGetValue(aliasTbl, out var s))
                                         sourceSchema = s;
+                                    if (tableInfoVisitor.TableParts.TryGetValue(aliasTbl, out var ap))
+                                    {
+                                        sourceDb     = ap.Database ?? sourceDb;
+                                        sourceServer = ap.Server ?? sourceServer;
+                                    }
                                 }
                                 else if (tableInfoVisitor.TableSchemas.Count > 0)
                                 {
-                                    var first    = tableInfoVisitor.TableSchemas.First();
-                                    sourceTable  = string.IsNullOrEmpty(sourceTable) ? first.Key : sourceTable;
-                                    sourceSchema = first.Value;
+                                    // Unqualified column in a (possibly multi-table) FROM. With no
+                                    // schema for the joined tables we cannot say which one owns it,
+                                    // so list every candidate rather than guess the first.
+                                    var (t, sc, db, srv) = ResolveUnqualifiedSource(
+                                        tableInfoVisitor, sourceSchema, sourceDb, sourceServer);
+                                    sourceTable  = t;
+                                    sourceSchema = sc;
+                                    sourceDb     = db;
+                                    sourceServer = srv;
                                 }
 
                                 records.Add(new SqlLineageRecord
                                 {
                                     ProcedureName    = procName,
                                     OperationType    = opType,
-                                    SourceServer     = defaultServer,
-                                    SourceDatabase   = tgtDb,
+                                    SourceServer     = sourceServer,
+                                    SourceDatabase   = sourceDb,
                                     SourceSchema     = sourceSchema,
                                     SourceTable      = sourceTable,
                                     SourceColumnName = sourceColName,
@@ -674,6 +727,48 @@ namespace SsisLineage.Core
                     }
                 }
 
+                // OPENQUERY / OPENROWSET pass-through queries — parse the inner remote query
+                // and map its select list straight into this query's target. For SELECT *
+                // INTO the inner output names ARE the target's column names, so any column
+                // of the target traces through to the remote source tables.
+                var openQueryVisitor = new OpenQueryVisitor();
+                spec.Accept(openQueryVisitor);
+                foreach (var (remoteServer, remoteSql) in openQueryVisitor.RemoteQueries)
+                {
+                    if (string.IsNullOrWhiteSpace(remoteSql)) continue;
+
+                    var innerParser = new TSql150Parser(false);
+                    using var innerReader = new StringReader(remoteSql);
+                    var innerFrag = innerParser.Parse(innerReader, out var innerErrors);
+                    if (innerErrors?.Count > 0 || innerFrag is not TSqlScript innerScript) continue;
+
+                    foreach (var innerBatch in innerScript.Batches)
+                    {
+                        foreach (var innerStmt in innerBatch.Statements)
+                        {
+                            if (innerStmt is SelectStatement innerSelect)
+                            {
+                                ProcessSelect(innerSelect.QueryExpression, targetCols, opType,
+                                    tgtTable, tgtSchema, tgtDb, procName,
+                                    string.IsNullOrEmpty(remoteServer) ? defaultServer : remoteServer,
+                                    records, generator);
+                            }
+                        }
+                    }
+                }
+
+                // Derived-table subqueries in FROM — SELECT … FROM (SELECT …) AS alias —
+                // trace each subquery into a pseudo-table named by its alias so base tables
+                // chain through it to the outer target (same model as CTEs / MERGE USING).
+                foreach (var derived in CollectDerivedTables(spec.FromClause))
+                {
+                    var derivedAlias = derived.Alias?.Value;
+                    if (string.IsNullOrEmpty(derivedAlias)) continue;
+                    var derivedCols = derived.Columns?.Select(c => c.Value).ToList() ?? new List<string>();
+                    ProcessSelect(derived.QueryExpression, derivedCols, "DERIVED",
+                        derivedAlias, "", tgtDb, procName, defaultServer, records, generator);
+                }
+
                 // SELECT * — emit one *→* record per source table so data flow is visible
                 if (hasStar)
                 {
@@ -682,12 +777,19 @@ namespace SsisLineage.Core
                     foreach (var srcTable in sourceTables)
                     {
                         tableInfoVisitor.TableSchemas.TryGetValue(srcTable, out var srcSchema);
+                        var starDb     = tgtDb;
+                        var starServer = defaultServer;
+                        if (tableInfoVisitor.TableParts.TryGetValue(srcTable, out var starParts))
+                        {
+                            starDb     = starParts.Database ?? starDb;
+                            starServer = starParts.Server ?? starServer;
+                        }
                         records.Add(new SqlLineageRecord
                         {
                             ProcedureName    = procName,
                             OperationType    = opType,
-                            SourceServer     = defaultServer,
-                            SourceDatabase   = tgtDb,
+                            SourceServer     = starServer,
+                            SourceDatabase   = starDb,
                             SourceSchema     = srcSchema ?? tgtSchema,
                             SourceTable      = srcTable,
                             SourceColumnName = "*",
@@ -710,6 +812,66 @@ namespace SsisLineage.Core
             }
         }
 
+        /// <summary>
+        /// Attribution for a select-list column that carries no table alias. A single-table
+        /// FROM is unambiguous; a multi-table FROM is not (we have no remote/base schema to
+        /// tell which joined table declares the column), so we return every candidate table
+        /// — pipe-delimited in FROM order — instead of asserting a wrong single table. The
+        /// server/database/schema collapse to the shared value when all candidates agree.
+        /// </summary>
+        private static (string Table, string Schema, string Db, string Server) ResolveUnqualifiedSource(
+            TableInfoVisitor info, string defaultSchema, string defaultDb, string defaultServer)
+        {
+            var tables = info.TableParts.Keys.ToList();
+            if (tables.Count == 0)
+                return ("", defaultSchema, defaultDb, defaultServer);
+
+            if (tables.Count == 1)
+            {
+                var only = info.TableParts[tables[0]];
+                return (tables[0], only.Schema, only.Database ?? defaultDb, only.Server ?? defaultServer);
+            }
+
+            var parts   = tables.Select(t => info.TableParts[t]).ToList();
+            var schemas = parts.Select(p => p.Schema ?? "").Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            var dbs     = parts.Select(p => p.Database).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            var servers = parts.Select(p => p.Server).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+
+            return (
+                string.Join(" | ", tables),
+                schemas.Count == 1 ? schemas[0] : "",
+                dbs.Count == 1 && !string.IsNullOrEmpty(dbs[0]) ? dbs[0]! : defaultDb,
+                servers.Count == 1 && !string.IsNullOrEmpty(servers[0]) ? servers[0]! : defaultServer);
+        }
+
+        // FROM-level derived tables only — derived tables nested inside a subquery are
+        // handled when that subquery is itself processed recursively.
+        private static IEnumerable<QueryDerivedTable> CollectDerivedTables(FromClause? from)
+        {
+            if (from == null) yield break;
+            var stack = new Stack<TableReference>(from.TableReferences);
+            while (stack.Count > 0)
+            {
+                switch (stack.Pop())
+                {
+                    case QueryDerivedTable qdt:
+                        yield return qdt;
+                        break;
+                    case QualifiedJoin qj:
+                        stack.Push(qj.FirstTableReference);
+                        stack.Push(qj.SecondTableReference);
+                        break;
+                    case UnqualifiedJoin uj:
+                        stack.Push(uj.FirstTableReference);
+                        stack.Push(uj.SecondTableReference);
+                        break;
+                    case JoinParenthesisTableReference jp:
+                        stack.Push(jp.Join);
+                        break;
+                }
+            }
+        }
+
         // ── MERGE ───────────────────────────────────────────────────────────────
 
         private static void ProcessMerge(
@@ -726,11 +888,60 @@ namespace SsisLineage.Core
             var tgt       = namedMergeTarget.SchemaObject.BaseIdentifier.Value;
             var tgtSchema = namedMergeTarget.SchemaObject.SchemaIdentifier?.Value ?? "dbo";
             var tgtDb     = namedMergeTarget.SchemaObject.DatabaseIdentifier?.Value ?? defaultDatabase;
+            var tgtServer = namedMergeTarget.SchemaObject.ServerIdentifier?.Value ?? defaultServer;
+
+            // Alias → table and table → (server, db, schema) across the whole MERGE,
+            // covering the target alias and the USING source (incl. 4-part linked-server names).
+            var aliasVisitor = new TableAliasVisitor();
+            mergeStmt.Accept(aliasVisitor);
+            var infoVisitor = new TableInfoVisitor();
+            mergeStmt.Accept(infoVisitor);
+
+            // USING (SELECT …) AS alias — trace the subquery into a pseudo-table named by
+            // the alias so base tables chain through it to the MERGE target.
+            var derivedAlias = "";
+            if (mg.TableReference is QueryDerivedTable derivedSource && derivedSource.Alias != null)
+            {
+                derivedAlias = derivedSource.Alias.Value;
+                var derivedCols = derivedSource.Columns?.Select(c => c.Value).ToList() ?? new List<string>();
+                ProcessSelect(derivedSource.QueryExpression, derivedCols, "MERGE-SOURCE",
+                    derivedAlias, "", defaultDatabase, procName, defaultServer, records, generator);
+            }
 
             // The MERGE ON condition is the join condition between source and target
             var mergeOn = "";
             if (mg.SearchCondition != null)
                 generator.GenerateScript(mg.SearchCondition, out mergeOn);
+
+            // Resolves "alias.Col" (or bare "Col") to the table it belongs to.
+            (string Server, string Db, string Schema, string Table, string Column) ResolveSourceColumn(string fullRef)
+            {
+                var col   = fullRef.Contains('.') ? fullRef.Split('.', 2)[1] : fullRef;
+                var alias = fullRef.Contains('.') ? fullRef.Split('.', 2)[0] : null;
+
+                var table  = "";
+                var schema = tgtSchema;
+                var db     = defaultDatabase;
+                var server = defaultServer;
+                if (alias != null && aliasVisitor.Aliases.TryGetValue(alias, out var aliasTable))
+                {
+                    table = aliasTable;
+                    if (infoVisitor.TableParts.TryGetValue(aliasTable, out var parts))
+                    {
+                        schema = parts.Schema;
+                        db     = parts.Database ?? defaultDatabase;
+                        server = parts.Server ?? defaultServer;
+                    }
+                }
+                else if (alias != null && string.Equals(alias, derivedAlias, StringComparison.OrdinalIgnoreCase))
+                {
+                    // USING (SELECT …) AS alias — chain through the pseudo-table emitted
+                    // by the MERGE-SOURCE records above.
+                    table  = derivedAlias;
+                    schema = "";
+                }
+                return (server, db, schema, table, col);
+            }
 
             foreach (var clause in mg.ActionClauses)
             {
@@ -739,29 +950,46 @@ namespace SsisLineage.Core
                     var tCols = insertAction.Columns
                         .Select(c => c.MultiPartIdentifier.Identifiers[^1].Value)
                         .ToList();
-                    var colVisitor = new ColumnReferenceVisitor();
-                    clause.Action.Accept(colVisitor);
-                    var idx = 0;
-                    foreach (var fullRef in colVisitor.Columns)
+
+                    // Pair each VALUES expression with its target column positionally so
+                    // literals/GETDATE() don't shift the mapping.
+                    if (insertAction.Source is ValuesInsertSource valuesSource)
                     {
-                        var srcCol = fullRef.Contains('.') ? fullRef.Split('.', 2)[1] : fullRef;
-                        records.Add(new SqlLineageRecord
+                        foreach (var row in valuesSource.RowValues)
                         {
-                            ProcedureName    = procName,
-                            OperationType    = "MERGE-INSERT",
-                            SourceServer     = defaultServer,
-                            SourceDatabase   = tgtDb,
-                            SourceSchema     = tgtSchema,
-                            SourceTable      = "",
-                            SourceColumnName = srcCol,
-                            TargetServer     = defaultServer,
-                            TargetDatabase   = tgtDb,
-                            TargetSchema     = tgtSchema,
-                            TargetTable      = tgt,
-                            TargetColumnName = idx < tCols.Count ? tCols[idx] : srcCol,
-                            JoinDetails      = mergeOn
-                        });
-                        idx++;
+                            for (var i = 0; i < row.ColumnValues.Count; i++)
+                            {
+                                var targetCol = i < tCols.Count ? tCols[i] : "";
+                                var valueExpr = row.ColumnValues[i];
+                                generator.GenerateScript(valueExpr, out var exprText);
+
+                                var colVisitor = new ColumnReferenceVisitor();
+                                valueExpr.Accept(colVisitor);
+                                if (colVisitor.Columns.Count == 0) continue; // literal/function — no source column
+
+                                foreach (var fullRef in colVisitor.Columns)
+                                {
+                                    var src = ResolveSourceColumn(fullRef);
+                                    records.Add(new SqlLineageRecord
+                                    {
+                                        ProcedureName    = procName,
+                                        OperationType    = "MERGE-INSERT",
+                                        SourceServer     = src.Server,
+                                        SourceDatabase   = src.Db,
+                                        SourceSchema     = src.Schema,
+                                        SourceTable      = src.Table,
+                                        SourceColumnName = src.Column,
+                                        SourceExpression = exprText,
+                                        TargetServer     = tgtServer,
+                                        TargetDatabase   = tgtDb,
+                                        TargetSchema     = tgtSchema,
+                                        TargetTable      = tgt,
+                                        TargetColumnName = targetCol,
+                                        JoinDetails      = mergeOn
+                                    });
+                                }
+                            }
+                        }
                     }
                 }
                 else if (clause.Action is UpdateMergeAction updateAction)
@@ -776,18 +1004,18 @@ namespace SsisLineage.Core
                             assignment.NewValue.Accept(colVisitor);
                             foreach (var srcCol in colVisitor.Columns)
                             {
-                                var colName = srcCol.Contains('.') ? srcCol.Split('.', 2)[1] : srcCol;
+                                var src = ResolveSourceColumn(srcCol);
                                 records.Add(new SqlLineageRecord
                                 {
                                     ProcedureName    = procName,
                                     OperationType    = "MERGE-UPDATE",
-                                    SourceServer     = defaultServer,
-                                    SourceDatabase   = defaultDatabase,
-                                    SourceSchema     = tgtSchema,
-                                    SourceTable      = "",
-                                    SourceColumnName = colName,
+                                    SourceServer     = src.Server,
+                                    SourceDatabase   = src.Db,
+                                    SourceSchema     = src.Schema,
+                                    SourceTable      = src.Table,
+                                    SourceColumnName = src.Column,
                                     SourceExpression = exprText,
-                                    TargetServer     = defaultServer,
+                                    TargetServer     = tgtServer,
                                     TargetDatabase   = tgtDb,
                                     TargetSchema     = tgtSchema,
                                     TargetTable      = tgt,
@@ -869,6 +1097,14 @@ namespace SsisLineage.Core
             var table = node.SchemaObject.BaseIdentifier.Value;
             Aliases[node.Alias != null ? node.Alias.Value : table] = table;
         }
+
+        // Derived table (SELECT …) AS alias — the alias IS the pseudo-table that the
+        // subquery's lineage records target, so references resolve to it by name.
+        public override void Visit(QueryDerivedTable node)
+        {
+            if (node.Alias != null)
+                Aliases[node.Alias.Value] = node.Alias.Value;
+        }
     }
 
     internal class TableInfoVisitor : TSqlFragmentVisitor
@@ -876,13 +1112,47 @@ namespace SsisLineage.Core
         /// <summary>table name → schema name</summary>
         public Dictionary<string, string> TableSchemas { get; } = new(StringComparer.OrdinalIgnoreCase);
 
+        /// <summary>table name → (server, database, schema). Server/database are null unless the
+        /// reference used a 3- or 4-part name (e.g. linked server: [SRV].[Db].[Schema].[Table]).</summary>
+        public Dictionary<string, (string? Server, string? Database, string Schema)> TableParts { get; }
+            = new(StringComparer.OrdinalIgnoreCase);
+
         public override void Visit(NamedTableReference node)
         {
             var table  = node.SchemaObject.BaseIdentifier.Value;
             var schema = node.SchemaObject.SchemaIdentifier?.Value ?? "dbo";
             if (!string.IsNullOrEmpty(table))
+            {
                 TableSchemas[table] = schema;
+                TableParts[table] = (node.SchemaObject.ServerIdentifier?.Value,
+                                     node.SchemaObject.DatabaseIdentifier?.Value,
+                                     schema);
+            }
         }
+
+        // Derived-table pseudo-tables have no schema — their node identity is the bare
+        // alias, matching the records the subquery emits.
+        public override void Visit(QueryDerivedTable node)
+        {
+            if (node.Alias == null) return;
+            TableSchemas[node.Alias.Value] = "";
+            TableParts[node.Alias.Value] = (null, null, "");
+        }
+    }
+
+    /// <summary>
+    /// Collects remote pass-through queries: OPENQUERY(linked_server, 'query') and
+    /// OPENROWSET(provider, connection, 'query'). Each yields (server, query text).
+    /// </summary>
+    internal class OpenQueryVisitor : TSqlFragmentVisitor
+    {
+        public List<(string Server, string Query)> RemoteQueries { get; } = new();
+
+        public override void Visit(OpenQueryTableReference node) =>
+            RemoteQueries.Add((node.LinkedServer?.Value ?? "", node.Query?.Value ?? ""));
+
+        public override void Visit(OpenRowsetTableReference node) =>
+            RemoteQueries.Add((node.DataSource?.Value ?? "", node.Query?.Value ?? ""));
     }
 
     /// <summary>

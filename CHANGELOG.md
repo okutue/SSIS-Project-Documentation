@@ -5,6 +5,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-06-10
+
+### Fixed
+- Removed the stray built-in "Browse Files" button that MudBlazor's file-upload component rendered next to Generate Report, and added proper spacing to the "Load saved report…" button
+
 ## [1.1.0] - 2026-06-09
 
 ### Added
@@ -38,6 +43,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - CLI `scan` command with JSON, YAML, Neo4j Cypher, Markdown, and HTML export
 - MIT license
 
-[Unreleased]: https://github.com/okutue/SSIS-Project-Documentation/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/okutue/SSIS-Project-Documentation/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/okutue/SSIS-Project-Documentation/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/okutue/SSIS-Project-Documentation/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/okutue/SSIS-Project-Documentation/releases/tag/v1.0.0

@@ -145,6 +145,36 @@ namespace SsisLineage.Cli
                 {
                     options.SqlConnectionString = scanArgs[++i];
                 }
+                else if (scanArgs[i] == "--linked-servers" && i + 1 < scanArgs.Length)
+                {
+                    var linkedServersFile = scanArgs[++i];
+                    try
+                    {
+                        options.LinkedServerMap = JsonSerializer.Deserialize<Dictionary<string, string>>(
+                            File.ReadAllText(linkedServersFile)) ?? new Dictionary<string, string>();
+                        Console.WriteLine($"[*] Loaded {options.LinkedServerMap.Count} linked-server mapping(s) from {linkedServersFile}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[Error] Failed to read linked-server mappings from {linkedServersFile}: {ex.Message}");
+                        return 2;
+                    }
+                }
+                else if (scanArgs[i] == "--sql-variables" && i + 1 < scanArgs.Length)
+                {
+                    var sqlVarsFile = scanArgs[++i];
+                    try
+                    {
+                        options.SqlVariableValues = JsonSerializer.Deserialize<Dictionary<string, string>>(
+                            File.ReadAllText(sqlVarsFile)) ?? new Dictionary<string, string>();
+                        Console.WriteLine($"[*] Loaded {options.SqlVariableValues.Count} SQL variable value(s) from {sqlVarsFile}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[Error] Failed to read SQL variable values from {sqlVarsFile}: {ex.Message}");
+                        return 2;
+                    }
+                }
             }
 
             if (string.IsNullOrEmpty(options.ProjectPath) || string.IsNullOrEmpty(options.StartPackage))
@@ -188,7 +218,7 @@ namespace SsisLineage.Cli
         static void PrintUsage()
         {
             Console.WriteLine("Usage:");
-            Console.WriteLine("  ssis-lineage scan --project-path <path> --start-package <name> [--output <dir>] [--no-cache] [--include-sql-procedures] [--sql-connection-string <connection-string>] [--variable-overrides <file.json>]");
+            Console.WriteLine("  ssis-lineage scan --project-path <path> --start-package <name> [--output <dir>] [--no-cache] [--include-sql-procedures] [--sql-connection-string <connection-string>] [--variable-overrides <file.json>] [--linked-servers <file.json>] [--sql-variables <file.json>]");
             Console.WriteLine("  ssis-lineage diff <old-lineage.json> <new-lineage.json> [--output <report.md>] [--fail-on-changes]");
             Console.WriteLine();
             Console.WriteLine("scan options:");
@@ -203,6 +233,14 @@ namespace SsisLineage.Cli
             Console.WriteLine("      --variable-overrides");
             Console.WriteLine("                         JSON file of \"Namespace::Name\": \"value\" pairs applied over design-time values");
             Console.WriteLine("                         (e.g. values extracted from an SSIS catalog environment — see docs/CI.md)");
+            Console.WriteLine("      --linked-servers");
+            Console.WriteLine("                         JSON file of \"LinkedServerName\": \"ActualServerName\" pairs. Linked servers are");
+            Console.WriteLine("                         auto-resolved from sys.servers when a SQL connection is available; entries in");
+            Console.WriteLine("                         this file override the auto-resolved values");
+            Console.WriteLine("      --sql-variables");
+            Console.WriteLine("                         JSON file of \"@Variable\": \"value\" pairs for stored-proc variables used to");
+            Console.WriteLine("                         build dynamic SQL (e.g. \"@Server\", \"@Database\"). Lets OPENQUERY linked-server");
+            Console.WriteLine("                         and remote table names resolve so unqualified columns map to their real table");
             Console.WriteLine();
             Console.WriteLine("diff options:");
             Console.WriteLine("  -o, --output           Write the markdown diff report to a file");

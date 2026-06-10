@@ -15,13 +15,36 @@ namespace SsisLineage.Core
         private readonly LineageGraph _graph;
         private readonly HashSet<string> _visitedPackages = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, object> _variableOverrides;
+        private readonly Dictionary<string, string> _sqlVariableValues;
+        private SsisConnectionManagerResolver? _connectionResolver;
 
-        public SsisPackageParser(string projectDirectory, Dictionary<string, string>? variableOverrides = null)
+        public SsisPackageParser(string projectDirectory, Dictionary<string, string>? variableOverrides = null,
+            Dictionary<string, string>? sqlVariableValues = null)
         {
             _projectDirectory = projectDirectory;
             _graph = new LineageGraph();
             _variableOverrides = (variableOverrides ?? new Dictionary<string, string>())
                 .ToDictionary(kv => kv.Key, kv => (object)kv.Value, StringComparer.OrdinalIgnoreCase);
+            _sqlVariableValues = sqlVariableValues ?? new Dictionary<string, string>();
+        }
+
+        // Resolves an Execute SQL task's connection manager reference to the actual
+        // (server, database) from the project .conmgr files — placeholders like the raw
+        // connection id would otherwise leak into lineage records as server/db names.
+        private (string Server, string Database) ResolveConnectionServerDb(string connectionManagerRef)
+        {
+            if (string.IsNullOrWhiteSpace(connectionManagerRef)) return ("", "");
+            try
+            {
+                _connectionResolver ??= new SsisConnectionManagerResolver(_projectDirectory);
+                var conn = _connectionResolver.TryResolveConnectionString(connectionManagerRef);
+                if (string.IsNullOrWhiteSpace(conn)) return ("", "");
+                return SqlProcedureDefinitionLoader.ExtractServerAndDatabase(conn);
+            }
+            catch
+            {
+                return ("", "");
+            }
         }
 
         // Project params fill gaps, then explicit overrides (e.g. extracted from an SSIS
@@ -206,7 +229,8 @@ namespace SsisLineage.Core
                     }
                     else
                     {
-                        var sqlRecords = SqlProcedureParser.Parse(sqlSource, connection, "LocalServer");
+                        var (connServer, connDb) = ResolveConnectionServerDb(connection);
+                        var sqlRecords = SqlProcedureParser.Parse(sqlSource, connDb, connServer, _sqlVariableValues);
                         foreach (var rec in sqlRecords)
                         {
                             _graph.ColumnMappings.Add(BuildSqlTaskColumnMap(
@@ -308,6 +332,9 @@ namespace SsisLineage.Core
                             compNode.ConnectionManager = comp.RuntimeConnectionCollection[0].ConnectionManagerID;
                         }
 
+                        // ADO NET source/destination store the table in TableOrViewName;
+                        // it only applies when no SqlCommand/OpenRowset is present.
+                        var tableOrViewName = "";
                         foreach (IDTSCustomProperty100 prop in comp.CustomPropertyCollection)
                         {
                             var propValue = prop.Value?.ToString() ?? "";
@@ -319,6 +346,14 @@ namespace SsisLineage.Core
                             {
                                 compNode.SqlQueryOrTable = ExpressionEvaluator.Evaluate(propValue, variables);
                             }
+                            else if (prop.Name == "TableOrViewName" && !string.IsNullOrEmpty(propValue))
+                            {
+                                tableOrViewName = ExpressionEvaluator.Evaluate(propValue, variables);
+                            }
+                        }
+                        if (string.IsNullOrEmpty(compNode.SqlQueryOrTable) && !string.IsNullOrEmpty(tableOrViewName))
+                        {
+                            compNode.SqlQueryOrTable = tableOrViewName;
                         }
 
                         _graph.Components.Add(compNode);
@@ -597,7 +632,8 @@ namespace SsisLineage.Core
                 // CTEs, dynamic SQL), same as the native path. OLE DB positional parameters (?)
                 // are substituted so ScriptDom can parse the statement.
                 var parsableSql = SqlProcedureParser.ReplacePositionalParameters(sqlSource);
-                var sqlRecords = SqlProcedureParser.Parse(parsableSql, connection, "LocalServer");
+                var (connServer, connDb) = ResolveConnectionServerDb(connection);
+                var sqlRecords = SqlProcedureParser.Parse(parsableSql, connDb, connServer, _sqlVariableValues);
                 foreach (var rec in sqlRecords)
                 {
                     _graph.ColumnMappings.Add(BuildSqlTaskColumnMap(
@@ -652,11 +688,13 @@ namespace SsisLineage.Core
                             $"Third-party or custom component '{compName}' (XML fallback) — lineage metadata may be incomplete.");
                     }
 
-                    // Extract open rowset (table name) or SqlCommand
+                    // Extract open rowset (table name), SqlCommand, or ADO NET TableOrViewName
                     var sqlProp = comp.Descendants()
                         .FirstOrDefault(x => x.Attribute("name")?.Value == "SqlCommand");
                     var tableProp = comp.Descendants()
                         .FirstOrDefault(x => x.Attribute("name")?.Value == "OpenRowset");
+                    var adoTableProp = comp.Descendants()
+                        .FirstOrDefault(x => x.Attribute("name")?.Value == "TableOrViewName");
 
                     if (sqlProp != null && !string.IsNullOrEmpty(sqlProp.Value))
                     {
@@ -665,6 +703,10 @@ namespace SsisLineage.Core
                     else if (tableProp != null && !string.IsNullOrEmpty(tableProp.Value))
                     {
                         compNode.SqlQueryOrTable = tableProp.Value;
+                    }
+                    else if (adoTableProp != null && !string.IsNullOrEmpty(adoTableProp.Value))
+                    {
+                        compNode.SqlQueryOrTable = adoTableProp.Value;
                     }
 
                     var connection = comp.Descendants()

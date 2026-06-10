@@ -154,9 +154,13 @@ namespace SsisLineage.Core
             if (!cols.Contains(side.FullKey, StringComparer.OrdinalIgnoreCase))
                 cols.Add(side.FullKey);
 
-            // Prefer a display sourced from a real table over a component-name fallback.
+            // Prefer a display sourced from a real table over a component-name fallback;
+            // among component-name fallbacks, prefer a dotted name (e.g. the proc behind
+            // a proc-backed source) over a generic component label.
             if (!_nodeInfo.TryGetValue(side.NodeKey, out var existing) ||
-                (!existing.FromRealTable && side.HasRealTable))
+                (!existing.FromRealTable && side.HasRealTable) ||
+                (!existing.FromRealTable && !side.HasRealTable &&
+                 string.IsNullOrEmpty(existing.Schema) && !string.IsNullOrEmpty(side.DisplaySchema)))
             {
                 _nodeInfo[side.NodeKey] = new NodeDisplay
                 {
@@ -165,6 +169,22 @@ namespace SsisLineage.Core
                     Schema = side.DisplaySchema,
                     Table = side.DisplayTable,
                     FromRealTable = side.HasRealTable
+                };
+            }
+            else if (existing.FromRealTable == side.HasRealTable &&
+                     (string.IsNullOrEmpty(existing.Server) || string.IsNullOrEmpty(existing.Database)) &&
+                     !string.IsNullOrEmpty(side.Server))
+            {
+                // Same display tier but the registered record lacked server/database
+                // (e.g. an inline Execute SQL record whose connection couldn't be
+                // resolved) — backfill from a record that knows them.
+                _nodeInfo[side.NodeKey] = new NodeDisplay
+                {
+                    Server = side.Server,
+                    Database = string.IsNullOrEmpty(side.Database) ? existing.Database : side.Database,
+                    Schema = existing.Schema,
+                    Table = existing.Table,
+                    FromRealTable = existing.FromRealTable
                 };
             }
         }
@@ -176,11 +196,14 @@ namespace SsisLineage.Core
             schema ??= ""; table ??= ""; componentName ??= ""; componentId ??= "";
             var hasRealTable = !string.IsNullOrEmpty(table);
 
-            // Node key (table-level): reconcile data-flow components by id.
-            var isXml = string.Equals(op, "XML_FALLBACK", StringComparison.OrdinalIgnoreCase);
+            // Node key (table-level): a side that resolves to a real table is keyed by the
+            // table so the same physical table is ONE node everywhere it appears — across
+            // packages (Stage Load writes Load_DW.STAGE_Fact_X, Fact Load reads it) and
+            // across record kinds (XML data-flow rows vs SQL_PROC rows). Only sides with
+            // no resolvable table (transforms, proc-backed sources) reconcile by component id.
             var isComp = !string.IsNullOrEmpty(componentId)
                          && _componentIds.Contains(componentId)
-                         && (isXml || !hasRealTable);
+                         && !hasRealTable;
 
             string nodeKey;
             if (isComp) nodeKey = "c:" + componentId.ToLowerInvariant();
@@ -259,9 +282,9 @@ namespace SsisLineage.Core
 
             var collected = new HashSet<int>();
             if (direction != TraceDirection.Downstream)
-                Walk(seeds, collected, _incoming, e => e.Source.FullKey);   // upstream
+                Walk(seeds, collected, _incoming, upstream: true);    // upstream
             if (direction != TraceDirection.Upstream)
-                Walk(seeds, collected, _outgoing, e => e.Target.FullKey);   // downstream
+                Walk(seeds, collected, _outgoing, upstream: false);   // downstream
 
             var edgeList = collected.Select(i => _edges[i]).ToList();
             var rank = ComputeRanks(edgeList);
@@ -342,7 +365,7 @@ namespace SsisLineage.Core
         }
 
         private void Walk(IEnumerable<string> seeds, HashSet<int> collected,
-                          Dictionary<string, List<int>> adjacency, Func<Edge, string> nextNode)
+                          Dictionary<string, List<int>> adjacency, bool upstream)
         {
             var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var queue = new Queue<string>(seeds);
@@ -350,12 +373,44 @@ namespace SsisLineage.Core
             {
                 var node = queue.Dequeue();
                 if (!visited.Add(node)) continue;
-                if (!adjacency.TryGetValue(node, out var edges)) continue;
-                foreach (var idx in edges)
+
+                // Direct edges on this exact column node.
+                var hasDirect = adjacency.TryGetValue(node, out var edges) && edges != null;
+                if (hasDirect)
                 {
+                    foreach (var idx in edges!)
+                    {
+                        collected.Add(idx);
+                        var next = (upstream ? _edges[idx].Source : _edges[idx].Target).FullKey;
+                        if (!visited.Contains(next)) queue.Enqueue(next);
+                    }
+                }
+
+                // Column-preserving wildcard bridge. A SELECT * produces a "*"→"*" edge that
+                // carries every column by name. When tracing a specific column that has NO
+                // direct edge of its own, cross the table's "*" edges and re-emerge as the
+                // SAME column on the far side — so the trace stays scoped to that one column
+                // instead of fanning out to every column the "*" represents. When a direct
+                // named edge already exists (e.g. an OPENQUERY select list was parsed into
+                // per-column records), the bridge is skipped entirely.
+                var sep = node.LastIndexOf('|');
+                if (hasDirect || sep < 0) continue;
+
+                var nodeKey = node[..sep];
+                var col = node[(sep + 1)..];
+                if (col == "*") continue;
+
+                if (!adjacency.TryGetValue($"{nodeKey}|*", out var wildEdges)) continue;
+                foreach (var idx in wildEdges)
+                {
+                    var e = _edges[idx];
+                    if (e.Source.Column != "*" || e.Target.Column != "*") continue;  // only "*"→"*"
+
                     collected.Add(idx);
-                    var next = nextNode(_edges[idx]);
-                    if (!visited.Contains(next)) queue.Enqueue(next);
+                    var far = upstream ? e.Source : e.Target;
+                    var farNamed = $"{far.NodeKey}|{col}";
+                    var emerge = _fullNodes.ContainsKey(farNamed) ? farNamed : far.FullKey;
+                    if (!visited.Contains(emerge)) queue.Enqueue(emerge);
                 }
             }
         }

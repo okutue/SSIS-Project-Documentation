@@ -12,6 +12,27 @@ Key UI features: interactive data-flow diagram (object and column views, entry-p
 
 CI integration: the CLI `diff` command compares two scans and fails the build on **lineage drift** — see [`docs/CI.md`](docs/CI.md).
 
+## Install (from source — recommended)
+
+The app builds against the Microsoft SSIS runtime assemblies on your machine, so running from source is the supported install:
+
+```powershell
+# 1. .NET 10 SDK (one-time)
+winget install Microsoft.DotNet.SDK.10
+
+# 2. Get the source — clone, or download "Source code (zip)" from the latest release and extract
+git clone https://github.com/okutue/SSIS-Project-Documentation.git
+cd SSIS-Project-Documentation
+
+# 3. Copy the SSIS runtime DLLs into lib/ssis (one-time, auto-elevates to admin)
+powershell -ExecutionPolicy Bypass -File setup-ssis-refs.ps1
+
+# 4. Run the desktop app
+dotnet run --project src/SsisLineage.Desktop -c Release
+```
+
+That's it — subsequent runs are just step 4. Releases on GitHub are **source-code releases**; download the `Source code (zip)` asset and follow the same steps.
+
 ## What gets parsed
 
 | Area | Coverage |

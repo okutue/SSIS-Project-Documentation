@@ -58,7 +58,16 @@
                         {
                             <MudText Typo="Typo.caption" Color="Color.Secondary"
                                      Style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block">
-                                @System.IO.Path.GetFileName(startPackage) · @System.IO.Path.GetFileName(projectPath.TrimEnd('\\', '/'))
+                                @if (!string.IsNullOrEmpty(reportData.LoadedFileName))
+                                {
+                                    <MudIcon Icon="@Icons.Material.Filled.FileOpen" Size="Size.Small" Class="mr-1"
+                                             Style="vertical-align:text-bottom;font-size:1rem" />
+                                    @($"Loaded · {reportData.LoadedFileName}")
+                                }
+                                else
+                                {
+                                    @($"{System.IO.Path.GetFileName(startPackage)} · {System.IO.Path.GetFileName(projectPath.TrimEnd('\\', '/'))}")
+                                }
                             </MudText>
                         }
                     </div>
@@ -676,6 +685,7 @@
             }
 
             reportData = loaded;
+            reportData.LoadedFileName = file.Name;   // shown in the collapsed panel for reference
             graphFilterPackageId = "";
             graphFilterTaskId = "";
             renderToken++;

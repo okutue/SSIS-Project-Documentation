@@ -5,6 +5,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.1.4] - 2026-06-11
+
+### Added
+- **Reset layout** — a Reset button (beside Fit) on both the discovery and lineage-search diagrams restores nodes to their original positions after they have been dragged, for both the object data-flow and column views
+- **Search-focus highlight** — searching a column or table in lineage search now highlights the matching node in the diagram with the same amber border used for the entry package
+
+### Changed
+- **Long labels wrap instead of truncating** — long table and column names in the column diagram now wrap onto multiple lines and the node grows in height to fit, so full names stay readable in the diagram and in PNG/screenshot exports (previously truncated with a tooltip that exports couldn't capture)
+
 ## [1.1.3] - 2026-06-11
 
 ### Added
@@ -65,7 +74,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - CLI `scan` command with JSON, YAML, Neo4j Cypher, Markdown, and HTML export
 - MIT license
 
-[Unreleased]: https://github.com/okutue/SSIS-Project-Documentation/compare/v1.1.3...HEAD
+[Unreleased]: https://github.com/okutue/SSIS-Project-Documentation/compare/v1.1.4...HEAD
+[1.1.4]: https://github.com/okutue/SSIS-Project-Documentation/compare/v1.1.3...v1.1.4
 [1.1.3]: https://github.com/okutue/SSIS-Project-Documentation/compare/v1.1.2...v1.1.3
 [1.1.2]: https://github.com/okutue/SSIS-Project-Documentation/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/okutue/SSIS-Project-Documentation/compare/v1.1.0...v1.1.1

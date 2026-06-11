@@ -254,7 +254,9 @@
                 _lastRenderedDark = IsDarkMode;
                 await Task.Delay(200); // allow DOM reconciliation
                 await JS.InvokeVoidAsync("cyLineage.render", "trace-diagram",
-                    _trace.SubGraph, new { }, null, IsDarkMode, "column");
+                    _trace.SubGraph,
+                    new { focus = _selected?.Display ?? "", focusScope = _selected?.Scope == SearchScope.Column ? "column" : "table" },
+                    null, IsDarkMode, "column");
             }
         }
         catch (Exception) { /* JS console captures details */ }

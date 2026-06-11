@@ -203,7 +203,12 @@ window.cyLineage = (function () {
         return key;
     }
 
-    function buildColumnElements(graph) {
+    function buildColumnElements(graph, filter) {
+        // Focused search hit (lineage search) — the column or table to highlight with the
+        // same amber border the entry package gets. Matched against the node's display label.
+        const focus = safe(filter && (filter.focus || filter.Focus)).toLowerCase();
+        const focusScope = safe(filter && (filter.focusScope || filter.FocusScope)).toLowerCase();
+
         const maps = normalize(graph.columnMappings || graph.ColumnMappings);
         const comps = normalize(graph.components || graph.Components);
         const compMap = new Map();
@@ -307,8 +312,9 @@ window.cyLineage = (function () {
                 const cols = Array.from(tbl.cols).sort();
                 const hdrLabel = tbl.label || key;
                 const top = y;
-                // parent container
-                elements.push({ data: { id: key, ckind: 'table', label: hdrLabel } });
+                // parent container — focus-highlight when a table search hit matches it
+                const tableFocus = !!focus && focusScope === 'table' && hdrLabel.toLowerCase() === focus;
+                elements.push({ data: { id: key, ckind: 'table', label: hdrLabel, focus: tableFocus } });
 
                 // header child — wrap and grow height to fit the full table name
                 const hw = wrapLabel(hdrLabel, 12, 700, HDR_TEXT_W, 3);
@@ -323,8 +329,10 @@ window.cyLineage = (function () {
                 cols.forEach(c => {
                     const cw = wrapLabel(c, 11, 400, COL_TEXT_W, 4);
                     const rowH = Math.max(ROW_NODE_H, cw.lines * LINE_H + 6);
+                    const tip = `${hdrLabel}.${c}`;
+                    const colFocus = !!focus && focusScope === 'column' && tip.toLowerCase() === focus;
                     elements.push({
-                        data: { id: `${key}::${c}`, parent: key, ckind: 'col', label: cw.text, table: key, tip: `${hdrLabel}.${c}`, h: rowH },
+                        data: { id: `${key}::${c}`, parent: key, ckind: 'col', label: cw.text, table: key, tip, h: rowH, focus: colFocus },
                         position: { x, y: rowY + rowH / 2 }
                     });
                     rowY += rowH + ROW_GAP;
@@ -388,7 +396,10 @@ window.cyLineage = (function () {
             { selector: '.cdim', style: { 'opacity': 0.1 } },
             { selector: '.cpath', style: { 'opacity': 1 } },
             { selector: 'edge.cpath', style: { 'line-color': '#38bdf8', 'target-arrow-color': '#38bdf8', 'width': 3, 'opacity': 1 } },
-            { selector: 'node[ckind="col"].cpath', style: { 'border-width': 2, 'border-color': '#38bdf8' } }
+            { selector: 'node[ckind="col"].cpath', style: { 'border-width': 2, 'border-color': '#38bdf8' } },
+            // searched column/table — amber border matching the entry-package highlight
+            { selector: 'node[ckind="table"][?focus]', style: { 'border-width': 3, 'border-color': '#f59e0b', 'border-opacity': 0.9 } },
+            { selector: 'node[ckind="col"][?focus]', style: { 'border-width': 2.5, 'border-color': '#f59e0b', 'border-opacity': 1 } }
         ];
     }
 
@@ -455,7 +466,7 @@ window.cyLineage = (function () {
         container.classList.toggle('cy-dark', isDark);
 
         let elements, empty = false;
-        if (mode === 'column') { const r = buildColumnElements(graph); elements = r.elements; empty = r.empty; }
+        if (mode === 'column') { const r = buildColumnElements(graph, filter); elements = r.elements; empty = r.empty; }
         else { elements = buildObjectElements(graph, filter); }
 
         if (empty) {

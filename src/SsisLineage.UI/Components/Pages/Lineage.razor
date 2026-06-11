@@ -294,6 +294,10 @@
                     }
                     <MudButton OnClick="ZoomToFit" Variant="Variant.Outlined" Size="Size.Small"
                                StartIcon="@Icons.Material.Filled.CenterFocusStrong">Fit</MudButton>
+                    <MudTooltip Text="Reset moved nodes to the original layout" Placement="Placement.Bottom">
+                        <MudButton OnClick="ResetLayout" Variant="Variant.Outlined" Size="Size.Small"
+                                   StartIcon="@Icons.Material.Filled.RestartAlt">Reset</MudButton>
+                    </MudTooltip>
                     <MudTooltip Text="Export diagram as PNG image" Placement="Placement.Bottom">
                         <MudIconButton Icon="@Icons.Material.Filled.Image" Size="Size.Small"
                                        Variant="Variant.Outlined" OnClick="ExportDiagramPng" />
@@ -546,6 +550,11 @@
     private async Task ZoomToFit()
     {
         await JS.InvokeVoidAsync("cyLineage.fit");
+    }
+
+    private async Task ResetLayout()
+    {
+        await JS.InvokeVoidAsync("cyLineage.resetLayout");
     }
 
     private async Task ExportDiagramPng()

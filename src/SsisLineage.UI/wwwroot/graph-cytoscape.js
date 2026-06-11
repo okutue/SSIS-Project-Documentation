@@ -18,6 +18,7 @@ window.cyLineage = (function () {
     let dotNetRef = null;
     let mode = 'object';
     let isDark = false;         // kept in module scope so exportPng/toggleFullscreen can read it
+    let homePositions = null;   // post-layout node positions, for resetLayout() after manual drags
 
     const safe = t => (t ? String(t).replace(/\s+/g, ' ').trim() : '');
     const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -46,6 +47,44 @@ window.cyLineage = (function () {
 
     const fileName = p => { const s = safe(p); const m = s.split(/[\\/]/); return m[m.length - 1] || s; };
     const trunc = (s, n) => { s = safe(s); return s.length > n ? s.slice(0, n) + '…' : s; };
+
+    // Measure-based label wrapping: long table/column names break onto multiple lines
+    // (growing the node's HEIGHT) instead of being truncated, so the full name stays
+    // visible in PNG/screenshot exports where the hover tooltip can't be captured.
+    // Column names rarely contain spaces, so a too-long token is hard-broken per character.
+    const _measureCtx = (() => { try { return document.createElement('canvas').getContext('2d'); } catch (e) { return null; } })();
+    function wrapLabel(text, fontPx, fontWeight, maxWidth, maxLines) {
+        text = safe(text);
+        if (!text || !_measureCtx) return { text, lines: 1 };
+        _measureCtx.font = `${fontWeight || 400} ${fontPx}px "Helvetica Neue", Helvetica, Arial, sans-serif`;
+        const fits = s => _measureCtx.measureText(s).width <= maxWidth;
+        if (fits(text)) return { text, lines: 1 };
+
+        const out = [];
+        let cur = '';
+        for (const tok of text.split(/(\s+)/)) {
+            if (tok === '') continue;
+            if (fits(cur + tok)) { cur += tok; continue; }
+            if (/^\s+$/.test(tok)) { if (cur) { out.push(cur); cur = ''; } continue; }
+            if (cur) { out.push(cur); cur = ''; }
+            let chunk = '';                       // hard-break a token longer than one line
+            for (const ch of tok) {
+                if (chunk === '' || fits(chunk + ch)) chunk += ch;
+                else { out.push(chunk); chunk = ch; }
+            }
+            cur = chunk;
+        }
+        if (cur) out.push(cur);
+
+        let lines = out.length ? out : [text];
+        if (maxLines && lines.length > maxLines) {
+            lines = lines.slice(0, maxLines);
+            let last = lines[maxLines - 1];
+            while (last.length > 1 && !fits(last + '…')) last = last.slice(0, -1);
+            lines[maxLines - 1] = last + '…';
+        }
+        return { text: lines.join('\n'), lines: lines.length };
+    }
 
     const normalize = arr => (arr || []).map(o => {
         if (!o || typeof o !== 'object') return o;
@@ -255,7 +294,10 @@ window.cyLineage = (function () {
         tables.forEach((_, k) => { const r = rank.get(k) || 0; if (!byRank.has(r)) byRank.set(r, []); byRank.get(r).push(k); });
         const CARD_W = COL_W + 2 * PAD;
         const elements = [];
-        const yCursor = new Map();
+        const LINE_H = 15;                          // approx line box at the row/header font
+        const HDR_GAP = HDR_PITCH - HDR_NODE_H;     // gap below the header
+        const ROW_GAP = ROW_PITCH - ROW_NODE_H;     // gap between rows
+        const HDR_TEXT_W = COL_W - 16, COL_TEXT_W = COL_W - 18;
 
         Array.from(byRank.keys()).sort((a, b) => a - b).forEach(r => {
             const x = r * (CARD_W + RANK_GAP) + CARD_W / 2;
@@ -267,21 +309,29 @@ window.cyLineage = (function () {
                 const top = y;
                 // parent container
                 elements.push({ data: { id: key, ckind: 'table', label: hdrLabel } });
-                // header child
+
+                // header child — wrap and grow height to fit the full table name
+                const hw = wrapLabel(hdrLabel, 12, 700, HDR_TEXT_W, 3);
+                const hdrH = Math.max(HDR_NODE_H, hw.lines * LINE_H + 12);
                 elements.push({
-                    data: { id: `${key}::__hdr`, parent: key, ckind: 'hdr', label: hdrLabel, tip: tbl.tip || '' },
-                    position: { x, y: top + HDR_PITCH / 2 }, grabbable: false, selectable: false
+                    data: { id: `${key}::__hdr`, parent: key, ckind: 'hdr', label: hw.text, tip: tbl.tip || '', h: hdrH },
+                    position: { x, y: top + hdrH / 2 }, grabbable: false, selectable: false
                 });
-                cols.forEach((c, j) => {
+
+                // column rows — variable height per wrapped label, stacked by accumulated y
+                let rowY = top + hdrH + HDR_GAP;
+                cols.forEach(c => {
+                    const cw = wrapLabel(c, 11, 400, COL_TEXT_W, 4);
+                    const rowH = Math.max(ROW_NODE_H, cw.lines * LINE_H + 6);
                     elements.push({
-                        data: { id: `${key}::${c}`, parent: key, ckind: 'col', label: c, table: key, tip: `${hdrLabel}.${c}` },
-                        position: { x, y: top + HDR_PITCH + j * ROW_PITCH + ROW_PITCH / 2 }
+                        data: { id: `${key}::${c}`, parent: key, ckind: 'col', label: cw.text, table: key, tip: `${hdrLabel}.${c}`, h: rowH },
+                        position: { x, y: rowY + rowH / 2 }
                     });
+                    rowY += rowH + ROW_GAP;
                 });
-                const h = HDR_PITCH + cols.length * ROW_PITCH;
-                y = top + h + TABLE_GAP;
+
+                y = rowY + TABLE_GAP;
             });
-            yCursor.set(r, y);
         });
 
         edges.forEach(e => elements.push({ data: { id: `ce:${e.sId}>${e.tId}`, source: e.sId, target: e.tId, cpd: '0 0', cpw: '0.5 0.5' }, classes: 'celink' }));
@@ -304,8 +354,8 @@ window.cyLineage = (function () {
 
             // column-mode table containers + rows
             { selector: 'node[ckind="table"]', style: { 'shape': 'round-rectangle', 'background-color': tblBg, 'border-color': tblBorder, 'border-width': 1, 'padding': PAD, 'background-opacity': 1 } },
-            { selector: 'node[ckind="hdr"]', style: { 'shape': 'round-rectangle', 'width': COL_W, 'height': HDR_NODE_H, 'background-color': hdrBg, 'border-width': 0, 'label': 'data(label)', 'color': hdrText, 'font-size': 12, 'font-weight': 700, 'text-valign': 'center', 'text-halign': 'center', 'text-max-width': COL_W - 16, 'text-wrap': 'ellipsis' } },
-            { selector: 'node[ckind="col"]', style: { 'shape': 'round-rectangle', 'width': COL_W, 'height': ROW_NODE_H, 'background-color': rowBg, 'border-width': 0, 'label': 'data(label)', 'color': rowText, 'font-size': 11, 'text-valign': 'center', 'text-halign': 'center', 'text-max-width': COL_W - 18, 'text-wrap': 'ellipsis' } },
+            { selector: 'node[ckind="hdr"]', style: { 'shape': 'round-rectangle', 'width': COL_W, 'height': 'data(h)', 'background-color': hdrBg, 'border-width': 0, 'label': 'data(label)', 'color': hdrText, 'font-size': 12, 'font-weight': 700, 'text-valign': 'center', 'text-halign': 'center', 'text-max-width': COL_W - 16, 'text-wrap': 'wrap', 'text-justification': 'center' } },
+            { selector: 'node[ckind="col"]', style: { 'shape': 'round-rectangle', 'width': COL_W, 'height': 'data(h)', 'background-color': rowBg, 'border-width': 0, 'label': 'data(label)', 'color': rowText, 'font-size': 11, 'text-valign': 'center', 'text-halign': 'center', 'text-max-width': COL_W - 18, 'text-wrap': 'wrap', 'text-justification': 'center' } },
 
             // edges leave each node horizontally from a single side-anchor, round the
             // corner, and run straight when source and target share a height.
@@ -473,10 +523,38 @@ window.cyLineage = (function () {
         }
 
         addLegend(container, isDark, mode);  // isDark is module-level
-        cy.ready(() => cy.fit(undefined, 48));
+        cy.ready(() => { snapshotHome(); cy.fit(undefined, 48); });
     }
 
     function fit() { if (cy) cy.fit(undefined, 48); }
+
+    // Capture each leaf node's position straight after layout so a later "Reset" can
+    // undo manual drags. Compound parents (table containers) auto-fit around their
+    // children, so they are skipped and restored implicitly.
+    function snapshotHome() {
+        if (!cy) return;
+        homePositions = {};
+        cy.nodes().forEach(n => {
+            if (typeof n.isParent === 'function' && n.isParent()) return;
+            const p = n.position();
+            homePositions[n.id()] = { x: p.x, y: p.y };
+        });
+    }
+
+    // Restore the original (post-layout) node positions and re-fit. Works for both the
+    // object data-flow diagram (dagre positions) and the column diagram (preset positions).
+    function resetLayout() {
+        if (!cy) return;
+        if (homePositions) {
+            cy.batch(() => {
+                cy.nodes().forEach(n => {
+                    const p = homePositions[n.id()];
+                    if (p) n.position({ x: p.x, y: p.y });
+                });
+            });
+        }
+        cy.fit(undefined, 48);
+    }
 
     function exportPng(filename) {
         if (!cy) return;
@@ -598,5 +676,5 @@ window.cyLineage = (function () {
         }
     }
 
-    return { render, fit, locate, clearHighlight, exportPng, toggleFullscreen };
+    return { render, fit, resetLayout, locate, clearHighlight, exportPng, toggleFullscreen };
 })();

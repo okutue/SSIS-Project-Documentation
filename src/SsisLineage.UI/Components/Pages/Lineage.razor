@@ -10,6 +10,7 @@
 @inject NavigationManager NavigationManager
 @inject IFolderPicker FolderPicker
 @inject RecentProjectsService RecentProjects
+@inject ISnackbar Snackbar
 @implements IDisposable
 
 <PageTitle>SSIS Lineage Report</PageTitle>
@@ -57,7 +58,16 @@
                         {
                             <MudText Typo="Typo.caption" Color="Color.Secondary"
                                      Style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block">
-                                @System.IO.Path.GetFileName(startPackage) · @System.IO.Path.GetFileName(projectPath.TrimEnd('\\', '/'))
+                                @if (!string.IsNullOrEmpty(reportData.LoadedFileName))
+                                {
+                                    <MudIcon Icon="@Icons.Material.Filled.FileOpen" Size="Size.Small" Class="mr-1"
+                                             Style="vertical-align:text-bottom;font-size:1rem" />
+                                    @($"Loaded · {reportData.LoadedFileName}")
+                                }
+                                else
+                                {
+                                    @($"{System.IO.Path.GetFileName(startPackage)} · {System.IO.Path.GetFileName(projectPath.TrimEnd('\\', '/'))}")
+                                }
                             </MudText>
                         }
                     </div>
@@ -127,7 +137,7 @@
                                       Variant="Variant.Outlined" Margin="Margin.Dense" Class="mt-2" Lines="2" />
                     }
 
-                    <MudButton OnClick="GenerateReportAsync" Disabled="isGenerating" Variant="Variant.Filled"
+                    <MudButton OnClick="GenerateReportAsync" Disabled="isGenerating || isLoadingReport" Variant="Variant.Filled"
                                Color="Color.Primary" FullWidth="true" Class="mt-4"
                                StartIcon="@Icons.Material.Filled.PlayArrow">
                         @(isGenerating ? "Generating..." : "Generate Report")
@@ -138,14 +148,18 @@
                     <MudFileUpload T="IBrowserFile" @ref="_reportUpload" FilesChanged="LoadReportFile"
                                    Accept=".json" Hidden="true" Class="d-none" />
                     <MudButton Variant="Variant.Text" Size="Size.Small" FullWidth="true" Class="mt-3"
+                               Disabled="isGenerating || isLoadingReport"
                                StartIcon="@Icons.Material.Filled.FileOpen"
                                OnClick="@(() => _reportUpload?.OpenFilePickerAsync() ?? Task.CompletedTask)">
-                        Load saved report…
+                        @(isLoadingReport ? "Loading report…" : "Load saved report…")
                     </MudButton>
 
-                    @if (isGenerating)
+                    @if (isGenerating || isLoadingReport)
                     {
                         <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mt-3" />
+                        <MudText Typo="Typo.caption" Color="Color.Secondary" Align="Align.Center" Class="d-block mt-1">
+                            @(isLoadingReport ? "Parsing saved report — large files can take a moment…" : "Scanning project…")
+                        </MudText>
                     }
 
                     @if (!string.IsNullOrEmpty(errorMessage))
@@ -413,6 +427,7 @@
     private string linkedServerMapText = "";
     private string sqlVariableValuesText = "";
     private bool isGenerating = false;
+    private bool isLoadingReport = false;
     private bool _controlsExpanded = true;
     private int renderToken = 0;
     private int _lastRenderedToken = -1;
@@ -603,11 +618,15 @@
             _recents = RecentProjects.Get();
             LineageService.PublishReport(reportData); // persist so "Back to Summary" keeps it
             _controlsExpanded = false; // collapse — user can expand again to re-run with different settings
+
+            var mappings = reportData.ColumnLineage?.Count ?? 0;
+            Snackbar.Add($"Report generated — {mappings:N0} column mappings.", Severity.Success);
         }
         catch (Exception ex)
         {
             errorMessage = ex.Message;
             reportData = null;
+            Snackbar.Add($"Report generation failed: {ex.Message}", Severity.Error);
         }
         finally
         {
@@ -642,28 +661,47 @@
     {
         if (file == null) return;
         errorMessage = "";
+        isLoadingReport = true;
+        // Render once so the progress indicator shows before the (potentially heavy) parse.
+        await InvokeAsync(StateHasChanged);
         try
         {
-            using var stream = file.OpenReadStream(maxAllowedSize: 200L * 1024 * 1024);
-            using var reader = new StreamReader(stream);
-            var json = await reader.ReadToEndAsync();
+            string json;
+            using (var stream = file.OpenReadStream(maxAllowedSize: 200L * 1024 * 1024))
+            using (var reader = new StreamReader(stream))
+            {
+                json = await reader.ReadToEndAsync();
+            }
 
-            var loaded = LineageService.LoadFromJson(json, Path.GetFileNameWithoutExtension(file.Name));
+            var fileName = Path.GetFileNameWithoutExtension(file.Name);
+            // Deserialization + building every export format is CPU-bound; run it off the
+            // UI circuit so the spinner stays live for large reports.
+            var loaded = await Task.Run(() => LineageService.LoadFromJson(json, fileName));
             if (loaded == null)
             {
                 errorMessage = $"'{file.Name}' is not a valid saved lineage report.";
+                Snackbar.Add($"Couldn't load '{file.Name}' — not a valid saved report.", Severity.Error);
                 return;
             }
 
             reportData = loaded;
+            reportData.LoadedFileName = file.Name;   // shown in the collapsed panel for reference
             graphFilterPackageId = "";
             graphFilterTaskId = "";
             renderToken++;
             _controlsExpanded = false;
+
+            var mappings = loaded.ColumnLineage?.Count ?? 0;
+            Snackbar.Add($"Loaded '{file.Name}' — {mappings:N0} column mappings.", Severity.Success);
         }
         catch (Exception ex)
         {
             errorMessage = $"Failed to load report: {ex.Message}";
+            Snackbar.Add($"Failed to load report: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isLoadingReport = false;
         }
     }
 

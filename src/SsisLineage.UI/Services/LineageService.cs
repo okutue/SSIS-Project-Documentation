@@ -48,6 +48,10 @@ namespace SsisLineage.UI.Services
         /// the entry-package highlight) when returning to the page after navigation.</summary>
         public string ProjectPath { get; set; } = "";
         public string StartPackage { get; set; } = "";
+        /// <summary>Source filename when this report was loaded from a saved .lineage.json
+        /// (empty for freshly generated reports). Lets the UI show what is on screen after
+        /// navigating away and back, since a loaded report has no project path/start package.</summary>
+        public string LoadedFileName { get; set; } = "";
     }
 
     public class LineageService

@@ -5,6 +5,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.1.3] - 2026-06-11
+
+### Added
+- **Loaded-report progress & confirmation** — loading a saved report now shows a progress indicator while it parses and a success notification on completion (with the column-mapping count), and surfaces errors as a notification; the heavy parse runs off the UI thread so large reports stay responsive
+- **Loaded-report identity** — the Generate Report panel now shows the loaded report's filename (e.g. "Loaded · report.json") so you can tell which saved report is on screen after navigating to the detailed view and back
+
 ## [1.1.2] - 2026-06-10
 
 ### Added
@@ -59,7 +65,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - CLI `scan` command with JSON, YAML, Neo4j Cypher, Markdown, and HTML export
 - MIT license
 
-[Unreleased]: https://github.com/okutue/SSIS-Project-Documentation/compare/v1.1.2...HEAD
+[Unreleased]: https://github.com/okutue/SSIS-Project-Documentation/compare/v1.1.3...HEAD
+[1.1.3]: https://github.com/okutue/SSIS-Project-Documentation/compare/v1.1.2...v1.1.3
 [1.1.2]: https://github.com/okutue/SSIS-Project-Documentation/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/okutue/SSIS-Project-Documentation/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/okutue/SSIS-Project-Documentation/compare/v1.0.0...v1.1.0

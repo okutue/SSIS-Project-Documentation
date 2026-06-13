@@ -2,10 +2,9 @@
 
 Deferred items, captured so they aren't lost.
 
-## Feature parity (remaining)
-- **Lineage diff in the extension.** The CLI/app can diff two `lineage.json` exports
-  (`ssis-lineage diff`). Surface it as a command (e.g. diff the current scan against a
-  saved baseline) for change/impact review in VS Code.
+## Feature parity
+- (nothing outstanding — scan, diagrams, search/trace/impact, drill-down, exports,
+  load, diff, AI tools + MCP, and per-connection-manager overrides are all ported.)
 
 ## Done
 - ~~**MCP server (.NET) wrapping the engine.**~~ Shipped as `src/SsisLineage.Mcp` —
@@ -13,6 +12,8 @@ Deferred items, captured so they aren't lost.
   `search`, `trace`, `status`) to any MCP client. See its README for wiring.
 
 ## Done
+- ~~**Lineage diff in the extension.**~~ `Diff Lineage…` runs the engine's diff and opens
+  the markdown report (current scan vs a baseline, or two files).
 - ~~**In-webview click-through drill-down.**~~ Clicking a column in the column view
   traces from it (renderer exposes a column-click hook; the webview posts it to the
   extension, which traces and re-renders).

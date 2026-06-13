@@ -65,6 +65,7 @@ export interface ScanOptions {
   startPackage: string;
   includeSqlProcedures: boolean;
   sqlConnectionString: string;
+  connectionManagerOverrides?: Record<string, string>;
 }
 
 export interface ScanResult {
@@ -98,7 +99,14 @@ export function runScan(cli: CliInvocation, opts: ScanOptions, channel: vscode.O
     args.push("--include-sql-procedures");
     if (opts.sqlConnectionString) args.push("--sql-connection-string", opts.sqlConnectionString);
   }
-  channel.appendLine(`[ssis-lineage] ${cli.command} ${args.join(" ")}`);
+  const overrides = opts.connectionManagerOverrides;
+  if (overrides && Object.keys(overrides).length > 0) {
+    const file = path.join(outputDir, "connection-managers.json");
+    fs.writeFileSync(file, JSON.stringify(overrides));
+    args.push("--connection-managers", file);
+  }
+  // Don't echo full args — they can include a connection string.
+  channel.appendLine(`[ssis-lineage] scan "${opts.projectPath}" (start: ${opts.startPackage}, procs: ${opts.includeSqlProcedures})`);
 
   return new Promise<ScanResult>((resolve, reject) => {
     const proc = spawn(cli.command, args, { windowsHide: true });
@@ -141,4 +149,21 @@ export function runTrace(
   cli: CliInvocation, lineageJsonPath: string, target: string, direction: "both" | "upstream" | "downstream"
 ): Promise<TraceResult> {
   return runJson<TraceResult>(cli, ["trace", "--input", lineageJsonPath, "--target", target, "--direction", direction]);
+}
+
+/** Diff two lineage.json exports; returns the markdown drift report. */
+export function runDiff(cli: CliInvocation, oldJson: string, newJson: string): Promise<string> {
+  const reportPath = path.join(os.tmpdir(), `ssis-lineage-diff-${Date.now()}.md`);
+  return new Promise<string>((resolve, reject) => {
+    const proc = spawn(cli.command, [...cli.baseArgs, "diff", oldJson, newJson, "--output", reportPath], { windowsHide: true });
+    let err = "";
+    proc.stderr.on("data", (d) => (err += d.toString()));
+    proc.on("error", reject);
+    proc.on("close", (code) => {
+      // diff exits 1 only with --fail-on-changes (not passed here); treat 0/1 as success.
+      if (code !== 0 && code !== 1) { reject(new Error(err.trim() || `diff exited with code ${code}`)); return; }
+      try { resolve(fs.readFileSync(reportPath, "utf8")); }
+      catch (e) { reject(new Error(`Could not read diff report: ${e instanceof Error ? e.message : String(e)}`)); }
+    });
+  });
 }

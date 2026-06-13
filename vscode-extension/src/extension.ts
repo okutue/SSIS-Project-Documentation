@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import * as path from "node:path";
 import * as fs from "node:fs";
-import { resolveCli, runScan, runLabels, runTrace, LabelHit } from "./cli";
+import { resolveCli, runScan, runLabels, runTrace, runDiff, LabelHit } from "./cli";
 import { readLineageGraph, LineageGraph } from "./lineage";
 import { LineageTreeProvider } from "./lineageTree";
 import { GraphPanel } from "./graphPanel";
@@ -34,6 +34,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("ssisLineage.exportTrace", () => exportTraceCommand()),
     vscode.commands.registerCommand("ssisLineage.openExports", () => openExportsCommand()),
     vscode.commands.registerCommand("ssisLineage.loadLineage", () => loadLineageCommand(context)),
+    vscode.commands.registerCommand("ssisLineage.diff", () => diffCommand(context)),
     vscode.commands.registerCommand("ssisLineage.setConnection", () => setConnectionCommand(context)),
     vscode.commands.registerCommand("ssisLineage.clearConnection", () => clearConnectionCommand(context))
   );
@@ -80,6 +81,7 @@ async function scanCommand(context: vscode.ExtensionContext): Promise<void> {
     startPackage,
     includeSqlProcedures,
     sqlConnectionString,
+    connectionManagerOverrides: cfg.get<Record<string, string>>("connectionManagerOverrides", {}),
   };
 
   await vscode.window.withProgress(
@@ -337,6 +339,41 @@ async function loadLineageCommand(context: vscode.ExtensionContext): Promise<voi
     );
   } catch (err) {
     vscode.window.showErrorMessage(`SSIS Lineage: could not load ${path.basename(jsonPath)} — ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
+// ── diff two lineage exports (drift / impact review) ─────────────────────────
+
+async function diffCommand(context: vscode.ExtensionContext): Promise<void> {
+  const cli = resolveCli(context);
+  if (!cli) {
+    return;
+  }
+
+  // "New" side defaults to the current scan; otherwise the user picks both files.
+  let newJson = state.lineageJsonPath;
+  if (!newJson) {
+    const pickNew = await vscode.window.showOpenDialog({
+      canSelectMany: false, filters: { "Lineage JSON": ["json"] }, openLabel: "Pick NEW lineage.json",
+    });
+    if (!pickNew?.length) return;
+    newJson = pickNew[0].fsPath;
+  }
+
+  const baseline = await vscode.window.showOpenDialog({
+    canSelectMany: false, filters: { "Lineage JSON": ["json"] },
+    openLabel: state.lineageJsonPath ? "Pick BASELINE to compare the current scan against" : "Pick OLD lineage.json",
+  });
+  if (!baseline?.length) {
+    return;
+  }
+
+  try {
+    const markdown = await runDiff(cli, baseline[0].fsPath, newJson);
+    const doc = await vscode.workspace.openTextDocument({ content: markdown, language: "markdown" });
+    await vscode.window.showTextDocument(doc);
+  } catch (err) {
+    vscode.window.showErrorMessage(`SSIS Lineage: diff failed — ${err instanceof Error ? err.message : String(err)}`);
   }
 }
 

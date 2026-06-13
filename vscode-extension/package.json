@@ -57,6 +57,11 @@
         "category": "SSIS Lineage"
       },
       {
+        "command": "ssisLineage.diff",
+        "title": "Diff Lineage…",
+        "category": "SSIS Lineage"
+      },
+      {
         "command": "ssisLineage.setConnection",
         "title": "Set SQL Connection…",
         "category": "SSIS Lineage"
@@ -175,6 +180,12 @@
           "type": "string",
           "default": "",
           "markdownDescription": "SQL Server connection string used only when 'Include SQL Procedures' is enabled. Prefer the **SSIS Lineage: Set SQL Connection…** command, which stores the string in VS Code Secret Storage instead of plaintext settings. This setting (if non-empty) takes precedence; otherwise the stored secret is used, then the project's `.conmgr` connection managers."
+        },
+        "ssisLineage.connectionManagerOverrides": {
+          "type": "object",
+          "default": {},
+          "additionalProperties": { "type": "string" },
+          "markdownDescription": "Per-connection-manager connection-string overrides, keyed by connection-manager **name or GUID** (e.g. `{ \"Staging\": \"Server=…;Database=Staging;Integrated Security=true\", \"DW\": \"Server=…;Database=DW;Integrated Security=true\" }`). Redirects specific `.conmgr` connections; the single connection (setting/secret) remains the fallback for any not listed. Note: values are stored in settings — use Integrated Security where possible to avoid plaintext credentials."
         }
       }
     }

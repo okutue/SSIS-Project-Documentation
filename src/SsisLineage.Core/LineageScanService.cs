@@ -44,6 +44,16 @@ namespace SsisLineage.Core
         /// remote table. Keys are matched with or without a leading '@'.
         /// </summary>
         public Dictionary<string, string> SqlVariableValues { get; set; } = new();
+
+        /// <summary>
+        /// Per-connection-manager connection-string overrides, keyed by connection-manager
+        /// name or GUID (e.g. {"Staging":"Server=…;Database=Staging;…", "DW":"…"}). Override a
+        /// specific manager's .conmgr value — useful when the project's connections point at a
+        /// server you can't reach and each database needs different redirection. Takes
+        /// precedence over the project .conmgr; <see cref="SqlConnectionString"/> remains the
+        /// single fallback for any manager not listed here.
+        /// </summary>
+        public Dictionary<string, string> ConnectionManagerOverrides { get; set; } = new();
     }
 
     public class LineageScanResult
@@ -112,7 +122,7 @@ namespace SsisLineage.Core
             else
             {
                 var parser = new SsisPackageParser(projectInfo.ProjectDirectory, options.VariableOverrides,
-                    options.SqlVariableValues);
+                    options.SqlVariableValues, options.ConnectionManagerOverrides);
                 graph = parser.Parse(rootPackage.Path);
 
                 cache.CachedPackages[cacheKey] = new CachedPackageResult
@@ -152,7 +162,8 @@ namespace SsisLineage.Core
                 includeExecuteSqlTasks: true,
                 linkedServerMap: options.LinkedServerMap,
                 autoResolveLinkedServers: options.AutoResolveLinkedServers,
-                sqlVariableValues: options.SqlVariableValues);
+                sqlVariableValues: options.SqlVariableValues,
+                connectionManagerOverrides: options.ConnectionManagerOverrides);
 
             var outputFiles = WriteOutputs(graph, outputDirectory);
 

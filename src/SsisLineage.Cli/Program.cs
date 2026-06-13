@@ -302,6 +302,21 @@ namespace SsisLineage.Cli
                         return 2;
                     }
                 }
+                else if (scanArgs[i] == "--connection-managers" && i + 1 < scanArgs.Length)
+                {
+                    var connMgrFile = scanArgs[++i];
+                    try
+                    {
+                        options.ConnectionManagerOverrides = JsonSerializer.Deserialize<Dictionary<string, string>>(
+                            File.ReadAllText(connMgrFile)) ?? new Dictionary<string, string>();
+                        Console.WriteLine($"[*] Loaded {options.ConnectionManagerOverrides.Count} connection-manager override(s) from {connMgrFile}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[Error] Failed to read connection-manager overrides from {connMgrFile}: {ex.Message}");
+                        return 2;
+                    }
+                }
             }
 
             if (string.IsNullOrEmpty(options.ProjectPath) || string.IsNullOrEmpty(options.StartPackage))
@@ -345,7 +360,7 @@ namespace SsisLineage.Cli
         static void PrintUsage()
         {
             Console.WriteLine("Usage:");
-            Console.WriteLine("  ssis-lineage scan --project-path <path> --start-package <name> [--output <dir>] [--no-cache] [--include-sql-procedures] [--sql-connection-string <connection-string>] [--variable-overrides <file.json>] [--linked-servers <file.json>] [--sql-variables <file.json>]");
+            Console.WriteLine("  ssis-lineage scan --project-path <path> --start-package <name> [--output <dir>] [--no-cache] [--include-sql-procedures] [--sql-connection-string <connection-string>] [--variable-overrides <file.json>] [--linked-servers <file.json>] [--sql-variables <file.json>] [--connection-managers <file.json>]");
             Console.WriteLine("  ssis-lineage diff <old-lineage.json> <new-lineage.json> [--output <report.md>] [--fail-on-changes]");
             Console.WriteLine();
             Console.WriteLine("scan options:");
@@ -368,6 +383,10 @@ namespace SsisLineage.Cli
             Console.WriteLine("                         JSON file of \"@Variable\": \"value\" pairs for stored-proc variables used to");
             Console.WriteLine("                         build dynamic SQL (e.g. \"@Server\", \"@Database\"). Lets OPENQUERY linked-server");
             Console.WriteLine("                         and remote table names resolve so unqualified columns map to their real table");
+            Console.WriteLine("      --connection-managers");
+            Console.WriteLine("                         JSON file of \"ConnectionManagerName\": \"connectionString\" pairs that override");
+            Console.WriteLine("                         specific .conmgr connections (by name or GUID). Use to redirect individual");
+            Console.WriteLine("                         databases; --sql-connection-string remains the fallback for the rest");
             Console.WriteLine();
             Console.WriteLine("diff options:");
             Console.WriteLine("  -o, --output           Write the markdown diff report to a file");

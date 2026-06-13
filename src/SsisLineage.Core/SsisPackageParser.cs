@@ -18,16 +18,18 @@ namespace SsisLineage.Core
         private readonly HashSet<string> _visitedPackages = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, object> _variableOverrides;
         private readonly Dictionary<string, string> _sqlVariableValues;
+        private readonly Dictionary<string, string> _connectionManagerOverrides;
         private SsisConnectionManagerResolver? _connectionResolver;
 
         public SsisPackageParser(string projectDirectory, Dictionary<string, string>? variableOverrides = null,
-            Dictionary<string, string>? sqlVariableValues = null)
+            Dictionary<string, string>? sqlVariableValues = null, Dictionary<string, string>? connectionManagerOverrides = null)
         {
             _projectDirectory = projectDirectory;
             _graph = new LineageGraph();
             _variableOverrides = (variableOverrides ?? new Dictionary<string, string>())
                 .ToDictionary(kv => kv.Key, kv => (object)kv.Value, StringComparer.OrdinalIgnoreCase);
             _sqlVariableValues = sqlVariableValues ?? new Dictionary<string, string>();
+            _connectionManagerOverrides = connectionManagerOverrides ?? new Dictionary<string, string>();
         }
 
         // Resolves an Execute SQL task's connection manager reference to the actual
@@ -38,7 +40,7 @@ namespace SsisLineage.Core
             if (string.IsNullOrWhiteSpace(connectionManagerRef)) return ("", "");
             try
             {
-                _connectionResolver ??= new SsisConnectionManagerResolver(_projectDirectory);
+                _connectionResolver ??= new SsisConnectionManagerResolver(_projectDirectory, _connectionManagerOverrides);
                 var conn = _connectionResolver.TryResolveConnectionString(connectionManagerRef);
                 if (string.IsNullOrWhiteSpace(conn)) return ("", "");
                 return SqlProcedureDefinitionLoader.ExtractServerAndDatabase(conn);

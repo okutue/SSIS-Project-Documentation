@@ -22,6 +22,9 @@ Scan SSIS projects and explore / trace data lineage without leaving VS Code.
 - **SSIS Lineage: Open Exports…** — open the scan's JSON / YAML / Cypher / Markdown /
   HTML / Mermaid / OpenLineage outputs.
 - **SSIS Lineage: Load Lineage (JSON)…** — open a saved `lineage.json` without re-scanning.
+- **SSIS Lineage: Diff Lineage…** — drift report between a baseline and the current scan.
+- **Per-connection-manager overrides** (`ssisLineage.connectionManagerOverrides`) — redirect
+  specific `.conmgr` connections by name/GUID when the project's connections aren't reachable.
 - **Copilot agent tools** — once a project is scanned, Copilot agent mode can call
   `#ssisSearch`, `#ssisTrace`, and a status tool to answer questions like “what feeds
   `DW.Dim_Customers.Email`?” or “what breaks if I change `source.Customers`?”. On

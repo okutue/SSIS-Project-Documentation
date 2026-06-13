@@ -40,3 +40,9 @@ Phase 1 MVP scaffold.
 - **Load Lineage (JSON)…** — open a previously saved `lineage.json` without re-scanning.
 - **MCP server auto-registration** — on VS Code 1.101+ the bundled MCP server is
   registered automatically for agent mode (no manual `mcp.json`).
+- **Per-connection-manager overrides** (`ssisLineage.connectionManagerOverrides`) —
+  redirect specific `.conmgr` connections by name or GUID; the single connection
+  (setting/secret) stays the fallback for the rest.
+- **Diff Lineage…** — diff a baseline `lineage.json` against the current scan (or two
+  files) and open the markdown drift report.
+- Scan no longer echoes the connection string to the output channel.

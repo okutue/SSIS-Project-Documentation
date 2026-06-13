@@ -25,6 +25,7 @@
     "etl",
     "sql server"
   ],
+  "icon": "media/icon.png",
   "main": "./out/extension.js",
   "activationEvents": [
     "workspaceContains:**/*.dtproj"
@@ -132,7 +133,7 @@
         {
           "id": "ssisLineage",
           "title": "SSIS Lineage",
-          "icon": "media/icon.svg"
+          "icon": "media/icon.png"
         }
       ]
     },
@@ -141,7 +142,7 @@
         {
           "id": "ssisLineage.explorer",
           "name": "Lineage",
-          "icon": "media/icon.svg"
+          "icon": "media/icon.png"
         }
       ]
     },

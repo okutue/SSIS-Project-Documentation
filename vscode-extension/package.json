@@ -110,6 +110,7 @@
         "name": "ssisLineage_status",
         "displayName": "SSIS Lineage: Status",
         "modelDescription": "Report whether an SSIS project has been scanned and loaded in this session, with counts (packages, tasks, components, column mappings).",
+        "toolReferenceName": "ssisStatus",
         "canBeReferencedInPrompt": true,
         "tags": ["ssis", "lineage"],
         "inputSchema": { "type": "object", "properties": {} }

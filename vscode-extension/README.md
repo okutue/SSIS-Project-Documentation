@@ -1,107 +1,77 @@
-# SSIS Lineage (VS Code extension)
+# SSIS Lineage
 
-Scan SSIS projects and explore / trace data lineage without leaving VS Code.
+Scan SQL Server Integration Services (SSIS) projects and explore, trace, and
+document column-level data lineage without leaving VS Code — including AI-agent
+access to your lineage.
 
-> **Status: Phase 1 (MVP).** This is an early scaffold living in the
-> [SSIS-Project-Documentation](../) monorepo. It reuses the same .NET lineage
-> engine and the same Cytoscape graph renderer as the desktop/web app.
+## Features
 
-## Packaging & install (self-contained VSIX)
-
-The extension bundles a self-contained build of the .NET engine (CLI + MCP server),
-so **end users need nothing installed** — no .NET runtime. VSIXes are
-platform-specific.
-
-```bash
-# From vscode-extension/. Requires the .NET 10 SDK (for the build) and Node.
-npm install
-npm run package                 # builds the VSIX for this machine's platform
-npm run package -- linux-x64    # or a specific target:
-                                #   win32-x64 | win32-arm64 | linux-x64 | linux-arm64 | darwin-x64 | darwin-arm64
-```
-
-This publishes the engine self-contained into `bin/`, compiles the extension, and
-writes `ssis-lineage-<target>.vsix` (~40 MB). Install it with **Extensions ▸ … ▸
-Install from VSIX…** (or `code --install-extension ssis-lineage-<target>.vsix`).
-
-> A 128×128 PNG `icon` (referenced from `package.json`) is still needed for a
-> Marketplace listing; it is optional for sideloaded VSIXes.
-
-## What it does today
-
-- Detects `.dtproj` projects in the workspace.
-- **SSIS Lineage: Scan Project** runs the engine CLI and loads the result.
-- **Lineage** activity-bar view: a Package → Task → Component tree of the scan.
-- **Lineage graph** webview: the object/data-flow and column views, with Fit and
-  Reset (reusing the shared renderer).
-- **SSIS Lineage: Trace Lineage** — search any column or table, choose a direction
-  (full / origins / impact), and the column view renders the traced sub-graph with
-  the focused node highlighted. Tracing runs in-process (a TypeScript port of the
-  engine's tracer over the loaded `lineage.json`), so it is instant.
-- **SSIS Lineage: Export Trace (CSV)** — opens the last trace as a CSV document.
-- **Click a column** in the column view to trace from it (drill-down).
-- **SSIS Lineage: Open Exports…** — open the scan's JSON / YAML / Cypher / Markdown /
-  HTML / Mermaid / OpenLineage outputs.
-- **SSIS Lineage: Load Lineage (JSON)…** — open a saved `lineage.json` without re-scanning.
-- **SSIS Lineage: Diff Lineage…** — drift report between a baseline and the current scan.
-- **Per-connection-manager overrides** (`ssisLineage.connectionManagerOverrides`) — redirect
-  specific `.conmgr` connections by name/GUID when the project's connections aren't reachable.
-- **Copilot agent tools** — once a project is scanned, Copilot agent mode can call
-  `#ssisSearch`, `#ssisTrace`, and a status tool to answer questions like “what feeds
-  `DW.Dim_Customers.Email`?” or “what breaks if I change `source.Customers`?”. On
-  VS Code 1.101+ the bundled MCP server is also auto-registered for agent mode.
-- **SSIS Lineage: Set SQL Connection…** — stores a connection string in VS Code
-  Secret Storage (preferred over the plaintext setting) for stored-procedure enrichment.
+- **Scan a project** — point at a `.dtproj`, pick the entry package, and get the full
+  lineage graph. Stored-procedure lineage is resolved from SQL Server (on by default).
+- **Interactive graph** — object/data-flow and column-level views, zoom-to-fit, reset
+  layout, and PNG export.
+- **Search & trace** — find any column or table and trace it upstream (origins),
+  downstream (impact), or both; the focused node is highlighted and the traced
+  sub-graph is rendered. Click a column to drill in from there.
+- **Lineage tree** — a Package → Task → Component view of the scan.
+- **Exports** — open the scan's JSON, YAML, Cypher, Markdown, HTML, Mermaid, or
+  OpenLineage outputs; export a trace to CSV; or load a saved `lineage.json` without
+  re-scanning.
+- **Diff** — compare a baseline against the current scan for change/impact review.
+- **AI agents** — ask Copilot agent mode (or any MCP client) to search and trace your
+  lineage: *“what feeds `DW.Dim_Customers.Email`?”*, *“what breaks if I change
+  `source.Customers`?”*
 
 ## Requirements
 
-The extension drives the .NET lineage engine via its CLI. The cross-platform
-build (`net10.0`) parses SSIS package XML on Windows, macOS, and Linux. SQL
-stored-procedure enrichment additionally needs a reachable SQL Server (and, off
-Windows, SQL/Entra auth rather than integrated security).
+- Self-contained VSIXes bundle the lineage engine, so **no .NET runtime is required**
+  to use the extension.
+- **Stored-procedure enrichment** needs a reachable SQL Server. Connections are read
+  automatically from the project's `.conmgr` connection managers; on Windows,
+  integrated security works out of the box (use SQL/Entra auth on macOS/Linux).
 
-### Pointing at the CLI (development)
+## Install
 
-Build the CLI from the monorepo and set `ssisLineage.cliPath`:
+Install the platform-specific VSIX via **Extensions ▸ ⋯ ▸ Install from VSIX…**, or:
 
 ```bash
-dotnet build ../src/SsisLineage.Cli/SsisLineage.Cli.csproj -f net10.0
+code --install-extension ssis-lineage-<platform>.vsix
 ```
 
-```jsonc
-// settings.json
-"ssisLineage.cliPath": ".../src/SsisLineage.Cli/bin/Debug/net10.0/SsisLineage.Cli.dll"
-```
-
-A packaged release will instead bundle a self-contained CLI under `bin/`, so end
-users won't need .NET installed or this setting.
+Then open a folder containing your SSIS project and run **SSIS Lineage: Scan Project**
+from the Command Palette or the SSIS Lineage view in the activity bar.
 
 ## Settings
 
 | Setting | Purpose |
 |---|---|
-| `ssisLineage.cliPath` | Path to the CLI (`.dll` run via `dotnet`, or a self-contained executable) |
+| `ssisLineage.includeSqlProcedures` | Resolve stored-procedure lineage from SQL Server (on by default) |
 | `ssisLineage.startPackage` | Entry/master package to scan from; prompts if empty |
-| `ssisLineage.includeSqlProcedures` | Resolve stored-procedure lineage from SQL Server |
-| `ssisLineage.sqlConnectionString` | Connection string for proc enrichment; resolves from `.conmgr` if empty |
+| `ssisLineage.sqlConnectionString` | Fallback connection for components whose connection manager isn't in `.conmgr` (prefer **Set SQL Connection…**, which uses Secret Storage) |
+| `ssisLineage.connectionManagerOverrides` | Per-connection-manager connection-string overrides, by name or GUID |
+| `ssisLineage.cliPath` | Override the bundled engine with a specific CLI build (advanced) |
 
-## Develop
+## AI agents
+
+Once a project is scanned, Copilot agent mode can use the `#ssisSearch`, `#ssisTrace`,
+and status tools. On VS Code 1.101+ the bundled Model Context Protocol (MCP) server is
+also registered automatically, and it can be used by any MCP client (Claude Desktop,
+Cursor, …) — see the engine's [MCP server](../src/SsisLineage.Mcp).
+
+## Build from source
+
+Requires the .NET 10 SDK and Node.js.
 
 ```bash
 npm install
-npm run compile      # copies shared graph assets, then builds TypeScript
-# Press F5 in VS Code to launch an Extension Development Host
+npm run package                 # self-contained VSIX for this platform
+npm run package -- linux-x64    # or: win32-x64 | win32-arm64 | linux-x64 | linux-arm64 | darwin-x64 | darwin-arm64
 ```
 
-The webview assets (`media/vendor/`) are copied from the Blazor RCL by
-`scripts/copy-assets.mjs` so there is a single source of truth for the renderer.
+To develop, `npm run compile` then press **F5** to launch an Extension Development
+Host. The graph renderer is shared with the desktop/web app and copied into
+`media/vendor/` by `scripts/copy-assets.mjs`.
 
-## Roadmap
+## License
 
-- ~~Phase 2: column trace / impact analysis~~ ✓ (search + trace + CSV export). In-webview
-  click-through drill-down is in [BACKLOG.md](BACKLOG.md).
-- ~~Phase 3: expose lineage to AI agents~~ ✓ via VS Code Language Model Tools (Copilot
-  agent mode) **and** a provider-agnostic MCP server ([../src/SsisLineage.Mcp](../src/SsisLineage.Mcp))
-  for Claude Desktop / Cursor / VS Code agent mode.
-- ~~Phase 4: connection UX~~ ✓ secure connection via Secret Storage. Deeper mssql
-  connection-profile integration is a follow-up.
+MIT — see [LICENSE](LICENSE).

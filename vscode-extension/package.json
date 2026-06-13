@@ -14,16 +14,25 @@
     "vscode": "^1.95.0"
   },
   "categories": [
-    "Visualization",
     "Data Science",
+    "Visualization",
+    "AI",
     "Other"
   ],
   "keywords": [
     "ssis",
     "lineage",
     "data lineage",
+    "data engineering",
+    "data warehouse",
     "etl",
-    "sql server"
+    "elt",
+    "sql server",
+    "impact analysis",
+    "dtsx",
+    "openlineage",
+    "mcp",
+    "copilot"
   ],
   "icon": "media/icon.png",
   "main": "./out/extension.js",

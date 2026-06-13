@@ -5,7 +5,7 @@ import * as path from "node:path";
 import * as os from "node:os";
 
 /** How to launch the engine CLI: an executable, or `dotnet <dll>`. */
-interface CliInvocation {
+export interface CliInvocation {
   command: string;
   baseArgs: string[];
   label: string;
@@ -15,7 +15,8 @@ interface CliInvocation {
  * Resolves how to run the SSIS Lineage CLI:
  *   1. `ssisLineage.cliPath` setting — a self-contained .exe or a `*.Cli.dll` (via dotnet)
  *   2. a binary bundled with the extension under bin/ (packaged distribution)
- * Returns null with a guidance message when neither is available.
+ *   3. dev fallback: the sibling net10.0 build output in the monorepo
+ * Returns null with a guidance message when none is available.
  */
 export function resolveCli(context: vscode.ExtensionContext): CliInvocation | null {
   const configured = vscode.workspace
@@ -33,15 +34,12 @@ export function resolveCli(context: vscode.ExtensionContext): CliInvocation | nu
       : { command: configured, baseArgs: [], label: path.basename(configured) };
   }
 
-  // Bundled binary (packaged distribution ships a self-contained CLI per platform).
   const exe = process.platform === "win32" ? "SsisLineage.Cli.exe" : "SsisLineage.Cli";
   const bundled = path.join(context.extensionPath, "bin", exe);
   if (fs.existsSync(bundled)) {
     return { command: bundled, baseArgs: [], label: exe };
   }
 
-  // Dev fallback: when running from the monorepo (F5), find the sibling CLI build output
-  // so testing needs no configuration. Prefer Debug, then Release.
   for (const cfg of ["Debug", "Release"]) {
     const devDll = path.join(
       context.extensionPath, "..", "src", "SsisLineage.Cli", "bin", cfg, "net10.0", "SsisLineage.Cli.dll"
@@ -74,48 +72,73 @@ export interface ScanResult {
   lineageJsonPath: string;
 }
 
-/**
- * Runs `scan` and returns the output directory. Streams CLI stdout/stderr to the
- * provided output channel. Rejects on non-zero exit.
- */
-export function runScan(
-  cli: CliInvocation,
-  opts: ScanOptions,
-  channel: vscode.OutputChannel
-): Promise<ScanResult> {
+export interface LabelHit { scope: "column" | "table"; display: string; }
+
+export interface TraceResult {
+  found: boolean;
+  focusLabel?: string;
+  focusScope?: "column" | "table";
+  tableCount?: number;
+  stepCount?: number;
+  steps?: { rank: number; source: string; target: string; operation: string; rename: boolean }[];
+  csv?: string;
+  subGraph?: unknown; // a LineageGraph (passed straight to the renderer)
+}
+
+/** Runs `scan`, streaming engine logs to the channel; returns the output dir + lineage.json path. */
+export function runScan(cli: CliInvocation, opts: ScanOptions, channel: vscode.OutputChannel): Promise<ScanResult> {
   const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), "ssis-lineage-"));
   const args = [
-    ...cli.baseArgs,
-    "scan",
+    ...cli.baseArgs, "scan",
     "--project-path", opts.projectPath,
     "--start-package", opts.startPackage,
     "--output", outputDir,
   ];
   if (opts.includeSqlProcedures) {
     args.push("--include-sql-procedures");
-    if (opts.sqlConnectionString) {
-      args.push("--sql-connection-string", opts.sqlConnectionString);
-    }
+    if (opts.sqlConnectionString) args.push("--sql-connection-string", opts.sqlConnectionString);
   }
-
   channel.appendLine(`[ssis-lineage] ${cli.command} ${args.join(" ")}`);
 
   return new Promise<ScanResult>((resolve, reject) => {
     const proc = spawn(cli.command, args, { windowsHide: true });
     proc.stdout.on("data", (d) => channel.append(d.toString()));
     proc.stderr.on("data", (d) => channel.append(d.toString()));
-    proc.on("error", (err) => reject(err));
+    proc.on("error", reject);
     proc.on("close", (code) => {
-      if (code !== 0) {
-        reject(new Error(`CLI exited with code ${code}. See the SSIS Lineage output for details.`));
-        return;
-      }
+      if (code !== 0) { reject(new Error(`CLI exited with code ${code}. See the SSIS Lineage output.`)); return; }
       const lineageJsonPath = path.join(outputDir, "lineage.json");
-      if (!fs.existsSync(lineageJsonPath)) {
-        reject(new Error("Scan finished but lineage.json was not produced."));
-        return;
-      }
+      if (!fs.existsSync(lineageJsonPath)) { reject(new Error("Scan finished but lineage.json was not produced.")); return; }
       resolve({ outputDir, lineageJsonPath });
     });
   });
+}
+
+/** Runs an engine subcommand that emits JSON to stdout, and parses it. */
+function runJson<T>(cli: CliInvocation, args: string[]): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const proc = spawn(cli.command, [...cli.baseArgs, ...args], { windowsHide: true });
+    let out = "";
+    let err = "";
+    proc.stdout.on("data", (d) => (out += d.toString()));
+    proc.stderr.on("data", (d) => (err += d.toString()));
+    proc.on("error", reject);
+    proc.on("close", (code) => {
+      if (code !== 0) { reject(new Error(err.trim() || `CLI exited with code ${code}`)); return; }
+      try { resolve(JSON.parse(out) as T); }
+      catch (e) { reject(new Error(`Could not parse engine output: ${e instanceof Error ? e.message : String(e)}`)); }
+    });
+  });
+}
+
+/** All searchable column/table names (engine-canonical) — for instant typeahead. */
+export function runLabels(cli: CliInvocation, lineageJsonPath: string): Promise<LabelHit[]> {
+  return runJson<LabelHit[]>(cli, ["labels", "--input", lineageJsonPath]);
+}
+
+/** Trace a column/table — returns the sub-graph, ordered steps, and engine-generated CSV. */
+export function runTrace(
+  cli: CliInvocation, lineageJsonPath: string, target: string, direction: "both" | "upstream" | "downstream"
+): Promise<TraceResult> {
+  return runJson<TraceResult>(cli, ["trace", "--input", lineageJsonPath, "--target", target, "--direction", direction]);
 }

@@ -4,6 +4,13 @@
 
 Phase 1 MVP scaffold.
 
+### Changed
+- **Single tracer (no duplication).** The extension no longer ports the tracer to
+  TypeScript; tracing, label enumeration and trace-CSV now come from the engine via
+  new `ssis-lineage labels` / `ssis-lineage trace` CLI subcommands (the same C#
+  `LineageTracer`). Typeahead filters an engine-provided label list in-memory, so it
+  stays instant; the actual trace is computed by the engine. `src/tracer.ts` removed.
+
 ### Added
 - Detect `.dtproj` projects in the workspace.
 - **SSIS Lineage: Scan Project** command — runs the engine CLI and loads the result.

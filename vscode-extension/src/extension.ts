@@ -1,20 +1,19 @@
 import * as vscode from "vscode";
 import * as path from "node:path";
-import { resolveCli, runScan } from "./cli";
+import { resolveCli, runScan, runLabels, runTrace, LabelHit } from "./cli";
 import { readLineageGraph, LineageGraph } from "./lineage";
 import { LineageTreeProvider } from "./lineageTree";
 import { GraphPanel } from "./graphPanel";
-import { Tracer, traceStepsToCsv, SearchHit, TraceDirection, TraceResult } from "./tracer";
-import { state } from "./state";
+import { state, filterLabels } from "./state";
 import { registerTools } from "./tools";
 
 const SECRET_CONN = "ssisLineage.sqlConnectionString";
+type Direction = "both" | "upstream" | "downstream";
 
 let channel: vscode.OutputChannel;
 let tree: LineageTreeProvider;
 let lastGraph: LineageGraph | undefined;
-let tracer: Tracer | undefined;
-let lastTrace: TraceResult | undefined;
+let lastTraceCsv: string | undefined;
 
 export function activate(context: vscode.ExtensionContext): void {
   channel = vscode.window.createOutputChannel("SSIS Lineage");
@@ -80,10 +79,11 @@ async function scanCommand(context: vscode.ExtensionContext): Promise<void> {
       try {
         const result = await runScan(cli, opts, channel);
         lastGraph = readLineageGraph(result.lineageJsonPath);
-        tracer = new Tracer(lastGraph);
-        lastTrace = undefined;
+        lastTraceCsv = undefined;
         state.graph = lastGraph;
-        state.tracer = tracer;
+        state.lineageJsonPath = result.lineageJsonPath;
+        state.cli = cli;
+        state.labels = await runLabels(cli, result.lineageJsonPath);
         tree.setGraph(lastGraph);
         GraphPanel.showOrUpdate(context, lastGraph);
         const m = lastGraph.ColumnMappings?.length ?? 0;
@@ -189,12 +189,12 @@ async function resolveStartPackage(project: vscode.Uri): Promise<string | undefi
 // ── trace ─────────────────────────────────────────────────────────────────
 
 async function traceCommand(context: vscode.ExtensionContext): Promise<void> {
-  if (!tracer || !lastGraph) {
+  if (!state.cli || !state.lineageJsonPath || !state.labels || !lastGraph) {
     vscode.window.showInformationMessage("SSIS Lineage: run “Scan Project” first.");
     return;
   }
 
-  const hit = await pickHit(tracer);
+  const hit = await pickHit();
   if (!hit) {
     return;
   }
@@ -204,37 +204,33 @@ async function traceCommand(context: vscode.ExtensionContext): Promise<void> {
     return;
   }
 
-  const result = tracer.trace(hit, direction);
-  lastTrace = result;
-  if (result.mappings.length === 0) {
-    vscode.window.showInformationMessage(`SSIS Lineage: no ${direction} lineage for ${result.focusLabel}.`);
-    return;
+  try {
+    const result = await runTrace(state.cli, state.lineageJsonPath, hit.display, direction);
+    if (!result.found || !result.subGraph) {
+      vscode.window.showInformationMessage(`SSIS Lineage: no ${direction} lineage for ${hit.display}.`);
+      return;
+    }
+    lastTraceCsv = result.csv;
+    GraphPanel.showTrace(context, result.subGraph as LineageGraph, result.focusLabel ?? hit.display, result.focusScope ?? hit.scope);
+    vscode.window.showInformationMessage(
+      `Trace: ${result.focusLabel} — ${result.stepCount} steps across ${result.tableCount} tables. Run “Export Trace (CSV)” to save.`
+    );
+  } catch (err) {
+    vscode.window.showErrorMessage(`SSIS Lineage: trace failed — ${err instanceof Error ? err.message : String(err)}`);
   }
-
-  GraphPanel.showTrace(
-    context,
-    { Packages: lastGraph.Packages, Tasks: lastGraph.Tasks, Components: lastGraph.Components, ColumnMappings: result.mappings },
-    result.focusLabel,
-    result.focusScope
-  );
-  vscode.window.showInformationMessage(
-    `Trace: ${result.focusLabel} — ${result.steps.length} steps across ${result.tableCount} tables. Run “Export Trace (CSV)” to save.`
-  );
 }
 
-interface HitItem extends vscode.QuickPickItem { hit: SearchHit; }
+interface HitItem extends vscode.QuickPickItem { hit: LabelHit; }
 
-/** Dynamic search QuickPick across columns and tables (typeahead via the tracer). */
-function pickHit(t: Tracer): Promise<SearchHit | undefined> {
+/** Dynamic search QuickPick across columns and tables (instant filter over cached labels). */
+function pickHit(): Promise<LabelHit | undefined> {
   return new Promise((resolve) => {
     const qp = vscode.window.createQuickPick<HitItem>();
     qp.placeholder = "Search a column or table to trace…";
     qp.matchOnDescription = true;
 
     const refresh = (term: string) => {
-      const cols = t.search(term, "column", 30).map((h): HitItem => ({ label: h.display, description: "column", hit: h }));
-      const tbls = t.search(term, "table", 20).map((h): HitItem => ({ label: h.display, description: "table", hit: h }));
-      qp.items = [...cols, ...tbls];
+      qp.items = filterLabels(term, "any", 100).map((h): HitItem => ({ label: h.display, description: h.scope, hit: h }));
     };
     refresh("");
 
@@ -246,12 +242,12 @@ function pickHit(t: Tracer): Promise<SearchHit | undefined> {
   });
 }
 
-async function pickDirection(): Promise<TraceDirection | undefined> {
+async function pickDirection(): Promise<Direction | undefined> {
   const pick = await vscode.window.showQuickPick(
     [
-      { label: "$(arrow-both) Full lineage", d: "both" as TraceDirection },
-      { label: "$(arrow-up) Origins (upstream)", d: "upstream" as TraceDirection },
-      { label: "$(arrow-down) Impact (downstream)", d: "downstream" as TraceDirection },
+      { label: "$(arrow-both) Full lineage", d: "both" as Direction },
+      { label: "$(arrow-up) Origins (upstream)", d: "upstream" as Direction },
+      { label: "$(arrow-down) Impact (downstream)", d: "downstream" as Direction },
     ],
     { placeHolder: "Trace direction" }
   );
@@ -259,12 +255,11 @@ async function pickDirection(): Promise<TraceDirection | undefined> {
 }
 
 async function exportTraceCommand(): Promise<void> {
-  if (!lastTrace) {
+  if (!lastTraceCsv) {
     vscode.window.showInformationMessage("SSIS Lineage: run a trace first (“Trace Lineage”).");
     return;
   }
-  const csv = traceStepsToCsv(lastTrace.steps);
-  const doc = await vscode.workspace.openTextDocument({ content: csv, language: "csv" });
+  const doc = await vscode.workspace.openTextDocument({ content: lastTraceCsv, language: "csv" });
   await vscode.window.showTextDocument(doc);
 }
 

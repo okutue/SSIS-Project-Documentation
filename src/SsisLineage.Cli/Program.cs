@@ -12,9 +12,18 @@ namespace SsisLineage.Cli
     {
         static int Main(string[] args)
         {
-            Console.WriteLine("========================================");
-            Console.WriteLine("    SSIS Project Lineage Utility");
-            Console.WriteLine("========================================");
+            // 'labels' and 'trace' emit machine-readable JSON to stdout for the VS Code
+            // extension — keep stdout clean (no banner; logging goes to stderr).
+            var machineReadable = args.Length > 0 &&
+                (args[0].Equals("labels", StringComparison.OrdinalIgnoreCase) ||
+                 args[0].Equals("trace", StringComparison.OrdinalIgnoreCase));
+
+            if (!machineReadable)
+            {
+                Console.WriteLine("========================================");
+                Console.WriteLine("    SSIS Project Lineage Utility");
+                Console.WriteLine("========================================");
+            }
 
             if (args.Length == 0 || args[0].Equals("help", StringComparison.OrdinalIgnoreCase) || args[0].Equals("--help", StringComparison.OrdinalIgnoreCase))
             {
@@ -32,10 +41,128 @@ namespace SsisLineage.Cli
                 return RunDiff(args.Skip(1).ToArray());
             }
 
+            if (args[0].Equals("labels", StringComparison.OrdinalIgnoreCase))
+            {
+                return RunLabels(args.Skip(1).ToArray());
+            }
+
+            if (args[0].Equals("trace", StringComparison.OrdinalIgnoreCase))
+            {
+                return RunTrace(args.Skip(1).ToArray());
+            }
+
             Console.WriteLine($"Unknown command: {args[0]}");
             PrintUsage();
             return 2;
         }
+
+        // ── labels: emit all searchable column/table names from a lineage.json ──
+        // Used by the extension for instant typeahead (engine-canonical names).
+        static int RunLabels(string[] a)
+        {
+            string? input = null;
+            for (int i = 0; i < a.Length; i++)
+            {
+                if ((a[i] == "--input" || a[i] == "-i") && i + 1 < a.Length) input = a[++i];
+            }
+            if (string.IsNullOrEmpty(input))
+            {
+                Console.Error.WriteLine("[Error] trace/labels require --input <lineage.json>.");
+                return 2;
+            }
+            try
+            {
+                var graph = JsonSerializer.Deserialize<LineageGraph>(File.ReadAllText(input)) ?? new LineageGraph();
+                var tracer = new LineageTracer(graph);
+                var items = tracer.Search("", SearchScope.Column, int.MaxValue)
+                    .Select(h => new LabelDto("column", h.Display))
+                    .Concat(tracer.Search("", SearchScope.Table, int.MaxValue).Select(h => new LabelDto("table", h.Display)))
+                    .ToList();
+                Console.Out.WriteLine(JsonSerializer.Serialize(items, JsonOpts));
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[Error] labels failed: {ex.Message}");
+                return 2;
+            }
+        }
+
+        // ── trace: run the engine tracer and emit the sub-graph + steps + CSV as JSON ──
+        static int RunTrace(string[] a)
+        {
+            string? input = null, target = null, output = null, direction = "both";
+            for (int i = 0; i < a.Length; i++)
+            {
+                if ((a[i] == "--input" || a[i] == "-i") && i + 1 < a.Length) input = a[++i];
+                else if ((a[i] == "--target" || a[i] == "-t") && i + 1 < a.Length) target = a[++i];
+                else if ((a[i] == "--direction" || a[i] == "-d") && i + 1 < a.Length) direction = a[++i];
+                else if ((a[i] == "--output" || a[i] == "-o") && i + 1 < a.Length) output = a[++i];
+            }
+            if (string.IsNullOrEmpty(input) || string.IsNullOrEmpty(target))
+            {
+                Console.Error.WriteLine("[Error] trace requires --input <lineage.json> and --target <name>.");
+                return 2;
+            }
+            try
+            {
+                var graph = JsonSerializer.Deserialize<LineageGraph>(File.ReadAllText(input)) ?? new LineageGraph();
+                var tracer = new LineageTracer(graph);
+                var dir = direction?.ToLowerInvariant() switch
+                {
+                    "upstream" => TraceDirection.Upstream,
+                    "downstream" => TraceDirection.Downstream,
+                    _ => TraceDirection.Both,
+                };
+
+                bool Eq(SearchHit h) => h.Display.Equals(target, StringComparison.OrdinalIgnoreCase);
+                var cols = tracer.Search(target, SearchScope.Column, 50).ToList();
+                var tbls = tracer.Search(target, SearchScope.Table, 50).ToList();
+                var hit = cols.FirstOrDefault(Eq) ?? tbls.FirstOrDefault(Eq) ?? cols.FirstOrDefault() ?? tbls.FirstOrDefault();
+
+                object dto;
+                if (hit is null)
+                {
+                    dto = new { found = false };
+                }
+                else
+                {
+                    var result = tracer.Trace(hit, dir);
+                    dto = new
+                    {
+                        found = true,
+                        focusLabel = result.FocusLabel,
+                        focusScope = hit.Scope.ToString().ToLowerInvariant(),
+                        tableCount = result.TableCount,
+                        stepCount = result.Steps.Count,
+                        steps = result.Steps.Select(s => new
+                        {
+                            rank = s.Rank,
+                            source = s.SourceLabel,
+                            target = s.TargetLabel,
+                            operation = s.Operation,
+                            rename = s.IsRename,
+                        }),
+                        csv = OutputGenerator.GenerateTraceCsv(result),
+                        subGraph = result.SubGraph,
+                    };
+                }
+
+                var json = JsonSerializer.Serialize(dto, JsonOpts);
+                if (!string.IsNullOrEmpty(output)) { File.WriteAllText(output, json); }
+                else { Console.Out.WriteLine(json); }
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[Error] trace failed: {ex.Message}");
+                return 2;
+            }
+        }
+
+        private static readonly JsonSerializerOptions JsonOpts = new() { WriteIndented = false };
+
+        private sealed record LabelDto(string scope, string display);
 
         /// <summary>
         /// Compares two lineage.json exports (e.g. main vs PR branch) and reports drift.

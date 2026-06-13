@@ -15,9 +15,10 @@ namespace SsisLineage.Core
             bool includeExecuteSqlTasks,
             IDictionary<string, string>? linkedServerMap = null,
             bool autoResolveLinkedServers = true,
-            IDictionary<string, string>? sqlVariableValues = null)
+            IDictionary<string, string>? sqlVariableValues = null,
+            IDictionary<string, string>? connectionManagerOverrides = null)
         {
-            var connectionResolver = new SsisConnectionManagerResolver(projectDirectory);
+            var connectionResolver = new SsisConnectionManagerResolver(projectDirectory, connectionManagerOverrides);
             var defaultConnectionString = overrideConnectionString;
             if (string.IsNullOrWhiteSpace(defaultConnectionString))
             {

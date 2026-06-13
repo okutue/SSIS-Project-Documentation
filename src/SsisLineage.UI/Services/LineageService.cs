@@ -81,7 +81,8 @@ namespace SsisLineage.UI.Services
         public LineageReportData GenerateLineageReport(string projectPath, string startPackage,
             bool useCache = true, bool includeSqlProcedures = false, string sqlConnectionString = "",
             Dictionary<string, string>? linkedServerMap = null, bool autoResolveLinkedServers = true,
-            Dictionary<string, string>? sqlVariableValues = null)
+            Dictionary<string, string>? sqlVariableValues = null,
+            Dictionary<string, string>? connectionManagerOverrides = null)
         {
             try
             {
@@ -96,6 +97,7 @@ namespace SsisLineage.UI.Services
                     LinkedServerMap = linkedServerMap ?? new Dictionary<string, string>(),
                     AutoResolveLinkedServers = autoResolveLinkedServers,
                     SqlVariableValues = sqlVariableValues ?? new Dictionary<string, string>(),
+                    ConnectionManagerOverrides = connectionManagerOverrides ?? new Dictionary<string, string>(),
                     OutputDirectory = Path.Combine(Path.GetTempPath(), "ssis-lineage-temp")
                 };
 

@@ -19,6 +19,7 @@ window.cyLineage = (function () {
     let mode = 'object';
     let isDark = false;         // kept in module scope so exportPng/toggleFullscreen can read it
     let homePositions = null;   // post-layout node positions, for resetLayout() after manual drags
+    let columnClickHandler = null; // optional drill-down hook (e.g. VS Code webview); inert otherwise
 
     const safe = t => (t ? String(t).replace(/\s+/g, ' ').trim() : '');
     const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -500,7 +501,10 @@ window.cyLineage = (function () {
         cy.on('tap', 'node', evt => {
             const n = evt.target, d = n.data();
             if (mode === 'column') {
-                if (d.ckind === 'col') highlightColumnPath(n);
+                if (d.ckind === 'col') {
+                    highlightColumnPath(n);
+                    if (columnClickHandler) columnClickHandler(d.tip || d.label);
+                }
                 return;
             }
             highlightObject(n);
@@ -687,5 +691,7 @@ window.cyLineage = (function () {
         }
     }
 
-    return { render, fit, resetLayout, locate, clearHighlight, exportPng, toggleFullscreen };
+    function setColumnClickHandler(fn) { columnClickHandler = typeof fn === 'function' ? fn : null; }
+
+    return { render, fit, resetLayout, locate, clearHighlight, exportPng, toggleFullscreen, setColumnClickHandler };
 })();

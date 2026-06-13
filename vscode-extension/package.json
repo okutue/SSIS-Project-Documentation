@@ -1,0 +1,222 @@
+{
+  "name": "ssis-lineage",
+  "displayName": "SSIS Lineage",
+  "description": "Scan SSIS projects and visualize / trace column-level data lineage inside VS Code.",
+  "version": "0.1.0",
+  "publisher": "okutue",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/okutue/SSIS-Project-Documentation.git",
+    "directory": "vscode-extension"
+  },
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "categories": [
+    "Data Science",
+    "Visualization",
+    "AI",
+    "Other"
+  ],
+  "keywords": [
+    "ssis",
+    "lineage",
+    "data lineage",
+    "data engineering",
+    "data warehouse",
+    "etl",
+    "elt",
+    "sql server",
+    "impact analysis",
+    "dtsx",
+    "openlineage",
+    "mcp",
+    "copilot"
+  ],
+  "icon": "media/icon.png",
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "workspaceContains:**/*.dtproj"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "ssisLineage.scan",
+        "title": "Scan Project",
+        "category": "SSIS Lineage"
+      },
+      {
+        "command": "ssisLineage.openGraph",
+        "title": "Open Lineage Graph",
+        "category": "SSIS Lineage"
+      },
+      {
+        "command": "ssisLineage.trace",
+        "title": "Trace Lineage",
+        "category": "SSIS Lineage",
+        "icon": "$(search)"
+      },
+      {
+        "command": "ssisLineage.exportTrace",
+        "title": "Export Trace (CSV)",
+        "category": "SSIS Lineage"
+      },
+      {
+        "command": "ssisLineage.openExports",
+        "title": "Open Exports…",
+        "category": "SSIS Lineage"
+      },
+      {
+        "command": "ssisLineage.loadLineage",
+        "title": "Load Lineage (JSON)…",
+        "category": "SSIS Lineage"
+      },
+      {
+        "command": "ssisLineage.diff",
+        "title": "Diff Lineage…",
+        "category": "SSIS Lineage"
+      },
+      {
+        "command": "ssisLineage.setConnection",
+        "title": "Set SQL Connection…",
+        "category": "SSIS Lineage"
+      },
+      {
+        "command": "ssisLineage.clearConnection",
+        "title": "Clear SQL Connection",
+        "category": "SSIS Lineage"
+      }
+    ],
+    "mcpServerDefinitionProviders": [
+      {
+        "id": "ssisLineage.mcp",
+        "label": "SSIS Lineage"
+      }
+    ],
+    "languageModelTools": [
+      {
+        "name": "ssisLineage_search",
+        "displayName": "SSIS Lineage: Search",
+        "modelDescription": "Search the scanned SSIS project for columns or tables by name (substring match). Returns matching fully-qualified names. Requires a prior scan.",
+        "toolReferenceName": "ssisSearch",
+        "canBeReferencedInPrompt": true,
+        "tags": ["ssis", "lineage", "data"],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "term": { "type": "string", "description": "Substring to search for, e.g. a column or table name." },
+            "scope": { "type": "string", "enum": ["column", "table"], "description": "Search columns (default) or tables." }
+          },
+          "required": ["term"]
+        }
+      },
+      {
+        "name": "ssisLineage_trace",
+        "displayName": "SSIS Lineage: Trace",
+        "modelDescription": "Trace data lineage for a column or table in the scanned SSIS project. direction 'upstream' returns origins/sources, 'downstream' returns impact/targets, 'both' returns the full path. Returns ordered hops (source -> target with operation). Requires a prior scan.",
+        "toolReferenceName": "ssisTrace",
+        "canBeReferencedInPrompt": true,
+        "tags": ["ssis", "lineage", "data", "impact"],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "target": { "type": "string", "description": "Column or table to trace, e.g. 'DW.Dim_Customers.Email' or 'DW.Dim_Customers'." },
+            "direction": { "type": "string", "enum": ["both", "upstream", "downstream"], "description": "upstream = origins, downstream = impact, both = full path (default)." }
+          },
+          "required": ["target"]
+        }
+      },
+      {
+        "name": "ssisLineage_status",
+        "displayName": "SSIS Lineage: Status",
+        "modelDescription": "Report whether an SSIS project has been scanned and loaded in this session, with counts (packages, tasks, components, column mappings).",
+        "toolReferenceName": "ssisStatus",
+        "canBeReferencedInPrompt": true,
+        "tags": ["ssis", "lineage"],
+        "inputSchema": { "type": "object", "properties": {} }
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "ssisLineage",
+          "title": "SSIS Lineage",
+          "icon": "media/icon.png"
+        }
+      ]
+    },
+    "views": {
+      "ssisLineage": [
+        {
+          "id": "ssisLineage.explorer",
+          "name": "Lineage",
+          "icon": "media/icon.png"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "ssisLineage.scan",
+          "when": "view == ssisLineage.explorer",
+          "group": "navigation@1"
+        },
+        {
+          "command": "ssisLineage.trace",
+          "when": "view == ssisLineage.explorer",
+          "group": "navigation@2"
+        },
+        {
+          "command": "ssisLineage.openGraph",
+          "when": "view == ssisLineage.explorer",
+          "group": "navigation@3"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "SSIS Lineage",
+      "properties": {
+        "ssisLineage.cliPath": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Path to the SSIS Lineage CLI — either a self-contained executable, or a `SsisLineage.Cli.dll` (run via `dotnet`). Leave empty to use a binary bundled with the extension. For development, point this at the built CLI, e.g. `…/src/SsisLineage.Cli/bin/Debug/net10.0/SsisLineage.Cli.dll`."
+        },
+        "ssisLineage.startPackage": {
+          "type": "string",
+          "default": "",
+          "description": "Entry/master package to scan from (e.g. Master.dtsx). When empty, you are prompted to pick one from the project."
+        },
+        "ssisLineage.includeSqlProcedures": {
+          "type": "boolean",
+          "default": true,
+          "description": "Connect to SQL Server and resolve stored-procedure lineage for data-flow components. On by default so procedure-backed sources trace through to their source tables; turn off for a faster package/XML-only scan with no database connection."
+        },
+        "ssisLineage.sqlConnectionString": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "SQL Server connection string used only when 'Include SQL Procedures' is enabled. Prefer the **SSIS Lineage: Set SQL Connection…** command, which stores the string in VS Code Secret Storage instead of plaintext settings. This setting (if non-empty) takes precedence; otherwise the stored secret is used, then the project's `.conmgr` connection managers."
+        },
+        "ssisLineage.connectionManagerOverrides": {
+          "type": "object",
+          "default": {},
+          "additionalProperties": { "type": "string" },
+          "markdownDescription": "Per-connection-manager connection-string overrides, keyed by connection-manager **name or GUID** (e.g. `{ \"Staging\": \"Server=…;Database=Staging;Integrated Security=true\", \"DW\": \"Server=…;Database=DW;Integrated Security=true\" }`). Redirects specific `.conmgr` connections; the single connection (setting/secret) remains the fallback for any not listed. Note: values are stored in settings — use Integrated Security where possible to avoid plaintext credentials."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "copy-assets": "node scripts/copy-assets.mjs",
+    "compile": "npm run copy-assets && tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "vscode:prepublish": "npm run compile",
+    "package": "node scripts/package.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.95.0",
+    "@vscode/vsce": "^3.2.0",
+    "typescript": "^5.4.0"
+  }
+}

@@ -5,6 +5,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-06-13
+
+### Added
+- **Cross-platform engine** — the core engine and CLI now also target `net10.0` (in
+  addition to `net10.0-windows`), so scanning runs on Windows, macOS, and Linux via the
+  XML package parser. The Windows-only SSIS runtime path is unchanged on Windows.
+- **VS Code extension** (preview, `vscode-extension/`) — scan, visualize, search/trace,
+  drill-down, exports, diff, AI agent tools, and an MCP server, shipped as a
+  self-contained VSIX (no .NET runtime required). Reuses this engine and graph renderer.
+- **MCP server** (`SsisLineage.Mcp`) — exposes scan/search/trace over the Model Context
+  Protocol to AI agents (Claude Desktop, Cursor, VS Code agent mode).
+- **Per-connection-manager overrides** — redirect specific connection managers (by name
+  or GUID) to your own connection string, in the app's scan form and the CLI
+  (`scan --connection-managers <file.json>`); the single connection stays the fallback.
+- **CLI `labels` and `trace`** — machine-readable lineage search and tracing over a
+  `lineage.json` (sub-graph + ordered steps + trace CSV), used by the extension.
+
+### Changed
+- Scan form: connection options are regrouped into “SQL Server connection” (per-database
+  overrides + single fallback) and “Name resolution” (linked servers, variable values),
+  with clearer labels to distinguish a fallback connection from per-manager overrides.
+
 ## [1.1.4] - 2026-06-11
 
 ### Added
@@ -74,7 +96,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - CLI `scan` command with JSON, YAML, Neo4j Cypher, Markdown, and HTML export
 - MIT license
 
-[Unreleased]: https://github.com/okutue/SSIS-Project-Documentation/compare/v1.1.4...HEAD
+[Unreleased]: https://github.com/okutue/SSIS-Project-Documentation/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/okutue/SSIS-Project-Documentation/compare/v1.1.4...v1.2.0
 [1.1.4]: https://github.com/okutue/SSIS-Project-Documentation/compare/v1.1.3...v1.1.4
 [1.1.3]: https://github.com/okutue/SSIS-Project-Documentation/compare/v1.1.2...v1.1.3
 [1.1.2]: https://github.com/okutue/SSIS-Project-Documentation/compare/v1.1.1...v1.1.2

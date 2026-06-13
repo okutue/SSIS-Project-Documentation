@@ -85,8 +85,10 @@ namespace SsisLineage.Core
             return reference.Trim('[', ']', '@', '$');
         }
 
+#if WINDOWS
         /// <summary>
-        /// Extract variables and parameters from SSIS Package and Project.
+        /// Extract variables and parameters from a loaded SSIS Package (native DTS runtime,
+        /// Windows only). The cross-platform build reads variables from package XML instead.
         /// </summary>
         public static Dictionary<string, object> ExtractVariables(Microsoft.SqlServer.Dts.Runtime.Package package)
         {
@@ -101,6 +103,7 @@ namespace SsisLineage.Core
 
             return variables;
         }
+#endif
 
         /// <summary>True when the value is exactly one variable/parameter reference, e.g. "@[User::SQLQuery]".</summary>
         public static bool IsSingleVariableReference(string? value) =>

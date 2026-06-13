@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Xml.Linq;
+#if WINDOWS
 using Microsoft.SqlServer.Dts.Runtime;
 using Microsoft.SqlServer.Dts.Pipeline.Wrapper;
+#endif
 using SsisLineage.Core.Models;
 
 namespace SsisLineage.Core
@@ -16,16 +18,18 @@ namespace SsisLineage.Core
         private readonly HashSet<string> _visitedPackages = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, object> _variableOverrides;
         private readonly Dictionary<string, string> _sqlVariableValues;
+        private readonly Dictionary<string, string> _connectionManagerOverrides;
         private SsisConnectionManagerResolver? _connectionResolver;
 
         public SsisPackageParser(string projectDirectory, Dictionary<string, string>? variableOverrides = null,
-            Dictionary<string, string>? sqlVariableValues = null)
+            Dictionary<string, string>? sqlVariableValues = null, Dictionary<string, string>? connectionManagerOverrides = null)
         {
             _projectDirectory = projectDirectory;
             _graph = new LineageGraph();
             _variableOverrides = (variableOverrides ?? new Dictionary<string, string>())
                 .ToDictionary(kv => kv.Key, kv => (object)kv.Value, StringComparer.OrdinalIgnoreCase);
             _sqlVariableValues = sqlVariableValues ?? new Dictionary<string, string>();
+            _connectionManagerOverrides = connectionManagerOverrides ?? new Dictionary<string, string>();
         }
 
         // Resolves an Execute SQL task's connection manager reference to the actual
@@ -36,7 +40,7 @@ namespace SsisLineage.Core
             if (string.IsNullOrWhiteSpace(connectionManagerRef)) return ("", "");
             try
             {
-                _connectionResolver ??= new SsisConnectionManagerResolver(_projectDirectory);
+                _connectionResolver ??= new SsisConnectionManagerResolver(_projectDirectory, _connectionManagerOverrides);
                 var conn = _connectionResolver.TryResolveConnectionString(connectionManagerRef);
                 if (string.IsNullOrWhiteSpace(conn)) return ("", "");
                 return SqlProcedureDefinitionLoader.ExtractServerAndDatabase(conn);
@@ -86,6 +90,7 @@ namespace SsisLineage.Core
 
             Console.WriteLine($"[*] Parsing package: {packageName}");
 
+#if WINDOWS
             try
             {
                 var app = new Application();
@@ -140,8 +145,14 @@ namespace SsisLineage.Core
                 Console.WriteLine($"[Info] Using XML-based SSIS parser for {packageName} (DTS runtime not compatible with .NET 10 — this is normal). Results are equivalent.");
                 ParsePackageXmlFallback(packagePath, parentPackageId);
             }
+#else
+            // Cross-platform build: the SSIS DTS runtime is Windows-only and unavailable, so the
+            // XML parser is the sole path (it is what the Windows build falls back to anyway).
+            ParsePackageXmlFallback(packagePath, parentPackageId);
+#endif
         }
 
+#if WINDOWS
         private void ProcessExecutables(Executables executables, PackageNode packageNode, Dictionary<string, object> variables)
         {
             foreach (Executable executable in executables)
@@ -384,6 +395,7 @@ namespace SsisLineage.Core
             }
         }
 
+#endif
         // Builds a ColumnMap from a parsed SQL lineage record, carrying ALL extracted fields
         // (source/target server·db·schema·table, expression, join + filter conditions).
         // Shared by the native and XML-fallback Execute SQL handlers so neither path drops data.
@@ -419,6 +431,7 @@ namespace SsisLineage.Core
             };
         }
 
+#if WINDOWS
         private void ProcessPrecedenceConstraints(PrecedenceConstraints constraints)
         {
             foreach (PrecedenceConstraint pc in constraints)
@@ -435,6 +448,7 @@ namespace SsisLineage.Core
                 });
             }
         }
+#endif
 
         #region XML Fallback Parsers
         private void ParsePackageXmlFallback(string packagePath, string? parentPackageId)

@@ -116,25 +116,42 @@
                                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Description" />
 
                     <MudCheckBox @bind-Value="includeSqlProcedures" Color="Color.Primary" Dense="true"
-                                 Label="Also enrich data-flow SQL procedures" />
+                                 Label="Also enrich data-flow SQL procedures (connect to SQL Server)" />
 
                     @if (includeSqlProcedures)
                     {
-                        <MudTextField @bind-Value="sqlConnectionString" Label="SQL connection string override (optional)"
+                        <MudText Typo="Typo.subtitle2" Class="mt-3">SQL Server connection</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mb-1">
+                            Connections are normally read from the project's .conmgr files automatically — these are only for overrides.
+                        </MudText>
+
+                        <MudTextField @bind-Value="connectionManagerMapText" Label="Per-database connection overrides (optional)"
+                                      Placeholder="Staging=Server=.\SQLSERVER2025;Database=Staging;Integrated Security=true&#10;DW=Server=.\SQLSERVER2025;Database=DW;Integrated Security=true"
+                                      HelperText="Redirect a specific connection manager to your own connection — one per line, ConnectionManagerName=ConnectionString (name or GUID). Wins over the project's .conmgr."
+                                      Variant="Variant.Outlined" Margin="Margin.Dense" Class="mt-1" Lines="3" />
+
+                        <MudTextField @bind-Value="sqlConnectionString" Label="Fallback connection for unknown managers (optional)"
+                                      Placeholder="Server=.\SQLSERVER2025;Database=Staging;Integrated Security=true"
+                                      HelperText="A single connection used only for components whose connection manager isn't found in .conmgr. Most projects can leave this empty."
                                       Variant="Variant.Outlined" Margin="Margin.Dense" Class="mt-2" Lines="2" />
+
+                        <MudText Typo="Typo.subtitle2" Class="mt-4">Name resolution (advanced)</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mb-1">
+                            Help the parser interpret server/table names that appear in SQL — these do not open connections.
+                        </MudText>
 
                         <MudCheckBox @bind-Value="autoResolveLinkedServers" Color="Color.Primary" Dense="true"
-                                     Label="Auto-map linked servers to actual server names (sys.servers)" />
+                                     Label="Auto-map linked-server names to their real server (via sys.servers)" />
 
-                        <MudTextField @bind-Value="linkedServerMapText" Label="Linked server mappings (optional)"
+                        <MudTextField @bind-Value="linkedServerMapText" Label="Linked-server name map (optional)"
                                       Placeholder="LINKEDSRV=StagingServer; OTHERLINK=RealHost"
-                                      HelperText="LinkedServerName=ActualServerName pairs separated by ; — overrides auto-mapped values"
-                                      Variant="Variant.Outlined" Margin="Margin.Dense" Class="mt-2" Lines="2" />
+                                      HelperText="Display only — maps a linked-server NAME to the real server name. LinkedServerName=ActualServerName, separated by ;. Overrides the auto-map above."
+                                      Variant="Variant.Outlined" Margin="Margin.Dense" Class="mt-1" Lines="2" />
 
-                        <MudTextField @bind-Value="sqlVariableValuesText" Label="SQL variable values (optional)"
+                        <MudTextField @bind-Value="sqlVariableValuesText" Label="Stored-proc variable values (optional)"
                                       Placeholder="@@Server=LINKEDSRV; @@Database=StagingDb"
-                                      HelperText="@@Variable=value pairs separated by ; — resolves OPENQUERY/dynamic-SQL names so unqualified columns map to their real source table"
-                                      Variant="Variant.Outlined" Margin="Margin.Dense" Class="mt-2" Lines="2" />
+                                      HelperText="Values for stored-proc parameters used to build dynamic SQL (the server/database variables) so OPENQUERY and remote table names resolve. One Variable=value per pair, separated by ; (see the placeholder)."
+                                      Variant="Variant.Outlined" Margin="Margin.Dense" Class="mt-1" Lines="2" />
                     }
 
                     <MudButton OnClick="GenerateReportAsync" Disabled="isGenerating || isLoadingReport" Variant="Variant.Filled"
@@ -430,6 +447,7 @@
     private bool autoResolveLinkedServers = true;
     private string linkedServerMapText = "";
     private string sqlVariableValuesText = "";
+    private string connectionManagerMapText = "";
     private bool isGenerating = false;
     private bool isLoadingReport = false;
     private bool _controlsExpanded = true;
@@ -617,7 +635,8 @@
                     sqlConnectionString,
                     ParseLinkedServerMap(linkedServerMapText),
                     autoResolveLinkedServers,
-                    ParseKeyValuePairs(sqlVariableValuesText)));
+                    ParseKeyValuePairs(sqlVariableValuesText),
+                    ParseConnectionManagerMap(connectionManagerMapText)));
 
             graphFilterPackageId = "";
             graphFilterTaskId = "";
@@ -660,6 +679,25 @@
             if (pair.Length != 2) continue;
             var key = pair[0].Trim().Trim('[', ']');
             var value = pair[1].Trim().Trim('[', ']');
+            if (key.Length > 0 && value.Length > 0)
+                map[key] = value;
+        }
+        return map;
+    }
+
+    // Parses connection-manager overrides: one per LINE, "Name=ConnectionString".
+    // Split on the FIRST '=' only — connection strings themselves contain '=' and ';'.
+    private static Dictionary<string, string> ParseConnectionManagerMap(string? text)
+    {
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (string.IsNullOrWhiteSpace(text)) return map;
+
+        foreach (var line in text.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries))
+        {
+            var eq = line.IndexOf('=');
+            if (eq <= 0) continue;
+            var key = line[..eq].Trim().Trim('[', ']');
+            var value = line[(eq + 1)..].Trim();
             if (key.Length > 0 && value.Length > 0)
                 map[key] = value;
         }

@@ -1,6 +1,7 @@
 <Solution>
   <Project Path="src/SsisLineage.Cli/SsisLineage.Cli.csproj" />
   <Project Path="src/SsisLineage.Core/SsisLineage.Core.csproj" />
+  <Project Path="src/SsisLineage.Mcp/SsisLineage.Mcp.csproj" />
   <Project Path="src/SsisLineage.UI/SsisLineage.UI.csproj" />
   <Project Path="src/SsisLineage.Web/SsisLineage.Web.csproj" />
   <Project Path="src/SsisLineage.Desktop/SsisLineage.Desktop.csproj" />

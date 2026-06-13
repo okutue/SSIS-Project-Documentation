@@ -34,6 +34,17 @@
         "command": "ssisLineage.openGraph",
         "title": "Open Lineage Graph",
         "category": "SSIS Lineage"
+      },
+      {
+        "command": "ssisLineage.trace",
+        "title": "Trace Lineage",
+        "category": "SSIS Lineage",
+        "icon": "$(search)"
+      },
+      {
+        "command": "ssisLineage.exportTrace",
+        "title": "Export Trace (CSV)",
+        "category": "SSIS Lineage"
       }
     ],
     "viewsContainers": {
@@ -59,12 +70,17 @@
         {
           "command": "ssisLineage.scan",
           "when": "view == ssisLineage.explorer",
-          "group": "navigation"
+          "group": "navigation@1"
+        },
+        {
+          "command": "ssisLineage.trace",
+          "when": "view == ssisLineage.explorer",
+          "group": "navigation@2"
         },
         {
           "command": "ssisLineage.openGraph",
           "when": "view == ssisLineage.explorer",
-          "group": "navigation"
+          "group": "navigation@3"
         }
       ]
     },

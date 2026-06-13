@@ -10,3 +10,9 @@ Phase 1 MVP scaffold.
 - **Lineage** activity-bar view with a Package → Task → Component tree.
 - Lineage graph webview reusing the shared Cytoscape renderer (object + column views, Fit, Reset).
 - Settings for CLI path, entry package, and SQL stored-procedure enrichment.
+- **SSIS Lineage: Trace Lineage** — typeahead search for a column/table, choose
+  direction (full / origins / impact); the column view renders the traced sub-graph
+  with the focused node highlighted. Tracing is a TypeScript port of the engine's
+  tracer running in-process over the loaded graph (instant, no round-trips).
+- **SSIS Lineage: Export Trace (CSV)** — opens the last trace as a CSV document
+  matching the engine's trace-export format.

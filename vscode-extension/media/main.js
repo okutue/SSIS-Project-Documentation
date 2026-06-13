@@ -6,11 +6,13 @@
   let graph = null;
   let dark = true;
   let mode = "object"; // 'object' | 'column'
+  let focus = "";       // searched column/table display (for highlight)
+  let focusScope = "";  // 'column' | 'table'
 
   function rerender() {
     if (!graph || !window.cyLineage) return;
     try {
-      window.cyLineage.render("graph", graph, {}, null, dark, mode);
+      window.cyLineage.render("graph", graph, { focus, focusScope }, null, dark, mode);
     } catch (e) {
       console.error("[ssis-lineage] render failed", e);
     }
@@ -28,7 +30,10 @@
     if (msg && msg.type === "render") {
       graph = msg.graph;
       dark = !!msg.dark;
-      rerender();
+      focus = msg.focus || "";
+      focusScope = msg.focusScope || "";
+      if (msg.mode) setMode(msg.mode); // updates buttons + rerenders
+      else rerender();
     }
   });
 

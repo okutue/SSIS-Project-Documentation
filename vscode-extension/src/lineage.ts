@@ -3,9 +3,16 @@ export interface LineagePackage { Id: string; Name: string; Path?: string; }
 export interface LineageTask { Id: string; Name: string; Type?: string; PackageId?: string; PackageName?: string; }
 export interface LineageComponent { Id: string; Name: string; Type?: string; TaskId?: string; SqlQueryOrTable?: string; }
 export interface LineageColumnMap {
+  PackageId?: string; TaskId?: string; ProcedureName?: string;
+  SourceComponentId?: string; SourceComponentName?: string;
+  SourceServer?: string; SourceDatabase?: string;
   SourceSchema?: string; SourceTable?: string; SourceColumnName?: string;
+  SourceExpression?: string;
+  TargetComponentId?: string; TargetComponentName?: string;
+  TargetServer?: string; TargetDatabase?: string;
   TargetSchema?: string; TargetTable?: string; TargetColumnName?: string;
   OperationType?: string;
+  JoinDetails?: string; FilterConditions?: string;
 }
 export interface LineageGraph {
   Packages?: LineagePackage[];

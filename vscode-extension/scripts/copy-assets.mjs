@@ -15,6 +15,8 @@ const assets = [
   ["lib/cytoscape/cytoscape-dagre.min.js", "cytoscape-dagre.min.js"],
   ["lib/cytoscape/cytoscape-node-html-label.min.js", "cytoscape-node-html-label.min.js"],
   ["graph-cytoscape.js", "graph-cytoscape.js"],
+  // Object-view node-card / legend / tooltip styles (the .cy-* classes the HTML labels use).
+  ["app.css", "graph.css"],
 ];
 
 mkdirSync(vendor, { recursive: true });

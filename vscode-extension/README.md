@@ -13,6 +13,11 @@ Scan SSIS projects and explore / trace data lineage without leaving VS Code.
 - **Lineage** activity-bar view: a Package → Task → Component tree of the scan.
 - **Lineage graph** webview: the object/data-flow and column views, with Fit and
   Reset (reusing the shared renderer).
+- **SSIS Lineage: Trace Lineage** — search any column or table, choose a direction
+  (full / origins / impact), and the column view renders the traced sub-graph with
+  the focused node highlighted. Tracing runs in-process (a TypeScript port of the
+  engine's tracer over the loaded `lineage.json`), so it is instant.
+- **SSIS Lineage: Export Trace (CSV)** — opens the last trace as a CSV document.
 
 ## Requirements
 
@@ -59,6 +64,7 @@ The webview assets (`media/vendor/`) are copied from the Blazor RCL by
 
 ## Roadmap
 
-- Phase 2: column trace / impact analysis in the webview; click-through drill-down.
+- ~~Phase 2: column trace / impact analysis~~ ✓ (search + trace + CSV export; in-webview
+  click-through drill-down still to come).
 - Phase 3: expose lineage to AI agents (MCP server / Language Model Tools).
 - Phase 4: connection UX (integrate with the mssql extension).

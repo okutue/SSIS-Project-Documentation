@@ -9,15 +9,40 @@ export class GraphPanel {
   private static current: GraphPanel | undefined;
   private readonly panel: vscode.WebviewPanel;
   private graph: LineageGraph | undefined;
+  private mode: "object" | "column" = "object";
+  private focus = "";
+  private focusScope = "";
   private disposables: vscode.Disposable[] = [];
 
+  /** Show the full project graph (object/data-flow view). */
   static showOrUpdate(context: vscode.ExtensionContext, graph: LineageGraph): void {
+    const p = GraphPanel.ensure(context, graph);
+    p.mode = "object";
+    p.focus = "";
+    p.focusScope = "";
+    p.postGraph();
+    p.panel.reveal();
+  }
+
+  /** Show a traced sub-graph (column view) with the focused node highlighted. */
+  static showTrace(
+    context: vscode.ExtensionContext, subGraph: LineageGraph, focusLabel: string, focusScope: string
+  ): void {
+    const p = GraphPanel.ensure(context, subGraph);
+    p.mode = "column";
+    p.focus = focusLabel;
+    p.focusScope = focusScope;
+    p.postGraph();
+    p.panel.reveal();
+  }
+
+  private static ensure(context: vscode.ExtensionContext, graph: LineageGraph): GraphPanel {
     if (GraphPanel.current) {
-      GraphPanel.current.update(graph);
-      GraphPanel.current.panel.reveal();
-      return;
+      GraphPanel.current.graph = graph;
+      return GraphPanel.current;
     }
     GraphPanel.current = new GraphPanel(context, graph);
+    return GraphPanel.current;
   }
 
   private constructor(private readonly context: vscode.ExtensionContext, graph: LineageGraph) {
@@ -51,15 +76,17 @@ export class GraphPanel {
     vscode.window.onDidChangeActiveColorTheme(() => this.postGraph(), null, this.disposables);
   }
 
-  private update(graph: LineageGraph): void {
-    this.graph = graph;
-    this.postGraph();
-  }
-
   private postGraph(): void {
     const dark = vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark
       || vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.HighContrast;
-    this.panel.webview.postMessage({ type: "render", graph: this.graph, dark });
+    this.panel.webview.postMessage({
+      type: "render",
+      graph: this.graph,
+      dark,
+      mode: this.mode,
+      focus: this.focus,
+      focusScope: this.focusScope,
+    });
   }
 
   private uri(file: string): vscode.Uri {
@@ -83,6 +110,7 @@ export class GraphPanel {
 <head>
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy" content="${csp}" />
+  <link rel="stylesheet" href="${vendor("graph.css")}" />
   <link rel="stylesheet" href="${this.uri("styles.css")}" />
   <title>SSIS Lineage</title>
 </head>

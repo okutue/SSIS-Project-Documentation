@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!-- Cross-platform: the MCP server runs anywhere the engine does. -->
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>SsisLineage.Mcp</AssemblyName>
+    <RootNamespace>SsisLineage.Mcp</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SsisLineage.Core\SsisLineage.Core.csproj" />
+  </ItemGroup>
+
+</Project>

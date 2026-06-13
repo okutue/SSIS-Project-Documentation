@@ -11,14 +11,17 @@ Deferred items, captured so they aren't lost.
   `tracer.trace` and re-renders. The column view's internal click-to-highlight-path
   already works without this.
 
-## Future / provider-agnostic
-- **MCP server (.NET) wrapping the engine.** Phase 3 ships VS Code Language Model
-  Tools (reusing the in-process TS tracer). A separate MCP server in .NET that wraps
-  `SsisLineage.Core` directly would expose the *real* C# tracer to any MCP client
-  (Claude Desktop, Cursor, VS Code agent mode) and remove the C#/TS tracer
-  duplication. Bigger lift; revisit once the extension stabilizes.
+## Done
+- ~~**MCP server (.NET) wrapping the engine.**~~ Shipped as `src/SsisLineage.Mcp` —
+  a stdio JSON-RPC MCP server exposing the real C# engine/tracer (`scan_project`,
+  `search`, `trace`, `status`) to any MCP client. See its README for wiring.
 
-## Maintenance
-- **Tracer duplication.** `src/tracer.ts` is a hand-port of
-  `SsisLineage.Core/LineageTracer.cs`. Keep them in sync, or collapse onto the MCP
-  server above so there is a single tracer implementation.
+## Future
+- **Auto-register the MCP server from the extension** via
+  `lm.registerMcpServerDefinitionProvider` (VS Code 1.101+), so installing the
+  extension makes the MCP server available without hand-editing `mcp.json`.
+- **Collapse the extension's LM tools onto the MCP server / C# tracer.** Today the
+  in-extension LM tools use the TS tracer port (`src/tracer.ts`), while the MCP server
+  uses the C# tracer. Pointing the extension at the engine would leave a single tracer
+  implementation. Until then, keep `src/tracer.ts` in sync with
+  `SsisLineage.Core/LineageTracer.cs`.

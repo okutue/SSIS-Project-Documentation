@@ -72,6 +72,7 @@ The webview assets (`media/vendor/`) are copied from the Blazor RCL by
 - ~~Phase 2: column trace / impact analysis~~ ✓ (search + trace + CSV export). In-webview
   click-through drill-down is in [BACKLOG.md](BACKLOG.md).
 - ~~Phase 3: expose lineage to AI agents~~ ✓ via VS Code Language Model Tools (Copilot
-  agent mode). A provider-agnostic MCP server is in [BACKLOG.md](BACKLOG.md).
+  agent mode) **and** a provider-agnostic MCP server ([../src/SsisLineage.Mcp](../src/SsisLineage.Mcp))
+  for Claude Desktop / Cursor / VS Code agent mode.
 - ~~Phase 4: connection UX~~ ✓ secure connection via Secret Storage. Deeper mssql
   connection-profile integration is a follow-up.

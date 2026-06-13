@@ -1,0 +1,64 @@
+# SSIS Lineage (VS Code extension)
+
+Scan SSIS projects and explore / trace data lineage without leaving VS Code.
+
+> **Status: Phase 1 (MVP).** This is an early scaffold living in the
+> [SSIS-Project-Documentation](../) monorepo. It reuses the same .NET lineage
+> engine and the same Cytoscape graph renderer as the desktop/web app.
+
+## What it does today
+
+- Detects `.dtproj` projects in the workspace.
+- **SSIS Lineage: Scan Project** runs the engine CLI and loads the result.
+- **Lineage** activity-bar view: a Package → Task → Component tree of the scan.
+- **Lineage graph** webview: the object/data-flow and column views, with Fit and
+  Reset (reusing the shared renderer).
+
+## Requirements
+
+The extension drives the .NET lineage engine via its CLI. The cross-platform
+build (`net10.0`) parses SSIS package XML on Windows, macOS, and Linux. SQL
+stored-procedure enrichment additionally needs a reachable SQL Server (and, off
+Windows, SQL/Entra auth rather than integrated security).
+
+### Pointing at the CLI (development)
+
+Build the CLI from the monorepo and set `ssisLineage.cliPath`:
+
+```bash
+dotnet build ../src/SsisLineage.Cli/SsisLineage.Cli.csproj -f net10.0
+```
+
+```jsonc
+// settings.json
+"ssisLineage.cliPath": ".../src/SsisLineage.Cli/bin/Debug/net10.0/SsisLineage.Cli.dll"
+```
+
+A packaged release will instead bundle a self-contained CLI under `bin/`, so end
+users won't need .NET installed or this setting.
+
+## Settings
+
+| Setting | Purpose |
+|---|---|
+| `ssisLineage.cliPath` | Path to the CLI (`.dll` run via `dotnet`, or a self-contained executable) |
+| `ssisLineage.startPackage` | Entry/master package to scan from; prompts if empty |
+| `ssisLineage.includeSqlProcedures` | Resolve stored-procedure lineage from SQL Server |
+| `ssisLineage.sqlConnectionString` | Connection string for proc enrichment; resolves from `.conmgr` if empty |
+
+## Develop
+
+```bash
+npm install
+npm run compile      # copies shared graph assets, then builds TypeScript
+# Press F5 in VS Code to launch an Extension Development Host
+```
+
+The webview assets (`media/vendor/`) are copied from the Blazor RCL by
+`scripts/copy-assets.mjs` so there is a single source of truth for the renderer.
+
+## Roadmap
+
+- Phase 2: column trace / impact analysis in the webview; click-through drill-down.
+- Phase 3: expose lineage to AI agents (MCP server / Language Model Tools).
+- Phase 4: connection UX (integrate with the mssql extension).

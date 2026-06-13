@@ -1,0 +1,108 @@
+{
+  "name": "ssis-lineage",
+  "displayName": "SSIS Lineage",
+  "description": "Scan SSIS projects and visualize / trace column-level data lineage inside VS Code.",
+  "version": "0.1.0",
+  "publisher": "okutue",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Visualization",
+    "Data Science",
+    "Other"
+  ],
+  "keywords": [
+    "ssis",
+    "lineage",
+    "data lineage",
+    "etl",
+    "sql server"
+  ],
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "workspaceContains:**/*.dtproj"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "ssisLineage.scan",
+        "title": "Scan Project",
+        "category": "SSIS Lineage"
+      },
+      {
+        "command": "ssisLineage.openGraph",
+        "title": "Open Lineage Graph",
+        "category": "SSIS Lineage"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "ssisLineage",
+          "title": "SSIS Lineage",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "ssisLineage": [
+        {
+          "id": "ssisLineage.explorer",
+          "name": "Lineage",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "ssisLineage.scan",
+          "when": "view == ssisLineage.explorer",
+          "group": "navigation"
+        },
+        {
+          "command": "ssisLineage.openGraph",
+          "when": "view == ssisLineage.explorer",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "SSIS Lineage",
+      "properties": {
+        "ssisLineage.cliPath": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Path to the SSIS Lineage CLI — either a self-contained executable, or a `SsisLineage.Cli.dll` (run via `dotnet`). Leave empty to use a binary bundled with the extension. For development, point this at the built CLI, e.g. `…/src/SsisLineage.Cli/bin/Debug/net10.0/SsisLineage.Cli.dll`."
+        },
+        "ssisLineage.startPackage": {
+          "type": "string",
+          "default": "",
+          "description": "Entry/master package to scan from (e.g. Master.dtsx). When empty, you are prompted to pick one from the project."
+        },
+        "ssisLineage.includeSqlProcedures": {
+          "type": "boolean",
+          "default": false,
+          "description": "Connect to SQL Server and resolve stored-procedure lineage for data-flow components."
+        },
+        "ssisLineage.sqlConnectionString": {
+          "type": "string",
+          "default": "",
+          "description": "SQL Server connection string used only when 'Include SQL Procedures' is enabled. Leave empty to resolve from the project's .conmgr connection managers."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "copy-assets": "node scripts/copy-assets.mjs",
+    "compile": "npm run copy-assets && tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "vscode:prepublish": "npm run compile"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.4.0"
+  }
+}

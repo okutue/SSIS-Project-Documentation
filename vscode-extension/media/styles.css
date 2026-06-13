@@ -1,0 +1,36 @@
+html, body { height: 100%; margin: 0; padding: 0; }
+body {
+  display: flex;
+  flex-direction: column;
+  color: var(--vscode-foreground);
+  font-family: var(--vscode-font-family);
+  background: var(--vscode-editor-background);
+}
+
+#toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  flex: 0 0 auto;
+}
+
+#toolbar button {
+  font: inherit;
+  color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
+  background: var(--vscode-button-secondaryBackground, transparent);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 4px;
+  padding: 3px 10px;
+  cursor: pointer;
+}
+#toolbar button:hover { background: var(--vscode-toolbar-hoverBackground); }
+#toolbar button.active {
+  color: var(--vscode-button-foreground);
+  background: var(--vscode-button-background);
+  border-color: var(--vscode-button-background);
+}
+#toolbar .sep { width: 1px; height: 18px; background: var(--vscode-panel-border); margin: 0 4px; }
+
+.graph-view { flex: 1 1 auto; min-height: 0; width: 100%; }

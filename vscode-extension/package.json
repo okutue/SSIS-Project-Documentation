@@ -5,7 +5,7 @@
   "version": "0.1.0",
   "publisher": "okutue",
   "engines": {
-    "vscode": "^1.85.0"
+    "vscode": "^1.95.0"
   },
   "categories": [
     "Visualization",
@@ -45,6 +45,58 @@
         "command": "ssisLineage.exportTrace",
         "title": "Export Trace (CSV)",
         "category": "SSIS Lineage"
+      },
+      {
+        "command": "ssisLineage.setConnection",
+        "title": "Set SQL Connection…",
+        "category": "SSIS Lineage"
+      },
+      {
+        "command": "ssisLineage.clearConnection",
+        "title": "Clear SQL Connection",
+        "category": "SSIS Lineage"
+      }
+    ],
+    "languageModelTools": [
+      {
+        "name": "ssisLineage_search",
+        "displayName": "SSIS Lineage: Search",
+        "modelDescription": "Search the scanned SSIS project for columns or tables by name (substring match). Returns matching fully-qualified names. Requires a prior scan.",
+        "toolReferenceName": "ssisSearch",
+        "canBeReferencedInPrompt": true,
+        "tags": ["ssis", "lineage", "data"],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "term": { "type": "string", "description": "Substring to search for, e.g. a column or table name." },
+            "scope": { "type": "string", "enum": ["column", "table"], "description": "Search columns (default) or tables." }
+          },
+          "required": ["term"]
+        }
+      },
+      {
+        "name": "ssisLineage_trace",
+        "displayName": "SSIS Lineage: Trace",
+        "modelDescription": "Trace data lineage for a column or table in the scanned SSIS project. direction 'upstream' returns origins/sources, 'downstream' returns impact/targets, 'both' returns the full path. Returns ordered hops (source -> target with operation). Requires a prior scan.",
+        "toolReferenceName": "ssisTrace",
+        "canBeReferencedInPrompt": true,
+        "tags": ["ssis", "lineage", "data", "impact"],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "target": { "type": "string", "description": "Column or table to trace, e.g. 'DW.Dim_Customers.Email' or 'DW.Dim_Customers'." },
+            "direction": { "type": "string", "enum": ["both", "upstream", "downstream"], "description": "upstream = origins, downstream = impact, both = full path (default)." }
+          },
+          "required": ["target"]
+        }
+      },
+      {
+        "name": "ssisLineage_status",
+        "displayName": "SSIS Lineage: Status",
+        "modelDescription": "Report whether an SSIS project has been scanned and loaded in this session, with counts (packages, tasks, components, column mappings).",
+        "canBeReferencedInPrompt": true,
+        "tags": ["ssis", "lineage"],
+        "inputSchema": { "type": "object", "properties": {} }
       }
     ],
     "viewsContainers": {
@@ -105,7 +157,7 @@
         "ssisLineage.sqlConnectionString": {
           "type": "string",
           "default": "",
-          "description": "SQL Server connection string used only when 'Include SQL Procedures' is enabled. Leave empty to resolve from the project's .conmgr connection managers."
+          "markdownDescription": "SQL Server connection string used only when 'Include SQL Procedures' is enabled. Prefer the **SSIS Lineage: Set SQL Connection…** command, which stores the string in VS Code Secret Storage instead of plaintext settings. This setting (if non-empty) takes precedence; otherwise the stored secret is used, then the project's `.conmgr` connection managers."
         }
       }
     }
@@ -118,7 +170,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
-    "@types/vscode": "^1.85.0",
+    "@types/vscode": "^1.95.0",
     "typescript": "^5.4.0"
   }
 }

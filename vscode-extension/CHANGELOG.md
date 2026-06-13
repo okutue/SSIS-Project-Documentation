@@ -16,3 +16,9 @@ Phase 1 MVP scaffold.
   tracer running in-process over the loaded graph (instant, no round-trips).
 - **SSIS Lineage: Export Trace (CSV)** — opens the last trace as a CSV document
   matching the engine's trace-export format.
+- **Copilot agent tools** (Language Model Tools): `ssisLineage_search`,
+  `ssisLineage_trace`, and `ssisLineage_status`, so agent mode can query the scanned
+  lineage (referenceable as `#ssisSearch` / `#ssisTrace`).
+- **SSIS Lineage: Set SQL Connection… / Clear SQL Connection** — connection string
+  stored in VS Code Secret Storage (preferred over the plaintext setting); scan uses
+  setting → secret → project `.conmgr`, in that order.

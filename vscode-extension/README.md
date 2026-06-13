@@ -18,6 +18,11 @@ Scan SSIS projects and explore / trace data lineage without leaving VS Code.
   the focused node highlighted. Tracing runs in-process (a TypeScript port of the
   engine's tracer over the loaded `lineage.json`), so it is instant.
 - **SSIS Lineage: Export Trace (CSV)** — opens the last trace as a CSV document.
+- **Copilot agent tools** — once a project is scanned, Copilot agent mode can call
+  `#ssisSearch`, `#ssisTrace`, and a status tool to answer questions like “what feeds
+  `DW.Dim_Customers.Email`?” or “what breaks if I change `source.Customers`?”.
+- **SSIS Lineage: Set SQL Connection…** — stores a connection string in VS Code
+  Secret Storage (preferred over the plaintext setting) for stored-procedure enrichment.
 
 ## Requirements
 
@@ -64,7 +69,9 @@ The webview assets (`media/vendor/`) are copied from the Blazor RCL by
 
 ## Roadmap
 
-- ~~Phase 2: column trace / impact analysis~~ ✓ (search + trace + CSV export; in-webview
-  click-through drill-down still to come).
-- Phase 3: expose lineage to AI agents (MCP server / Language Model Tools).
-- Phase 4: connection UX (integrate with the mssql extension).
+- ~~Phase 2: column trace / impact analysis~~ ✓ (search + trace + CSV export). In-webview
+  click-through drill-down is in [BACKLOG.md](BACKLOG.md).
+- ~~Phase 3: expose lineage to AI agents~~ ✓ via VS Code Language Model Tools (Copilot
+  agent mode). A provider-agnostic MCP server is in [BACKLOG.md](BACKLOG.md).
+- ~~Phase 4: connection UX~~ ✓ secure connection via Secret Storage. Deeper mssql
+  connection-profile integration is a follow-up.

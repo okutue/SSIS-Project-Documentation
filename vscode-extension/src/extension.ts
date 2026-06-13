@@ -5,6 +5,10 @@ import { readLineageGraph, LineageGraph } from "./lineage";
 import { LineageTreeProvider } from "./lineageTree";
 import { GraphPanel } from "./graphPanel";
 import { Tracer, traceStepsToCsv, SearchHit, TraceDirection, TraceResult } from "./tracer";
+import { state } from "./state";
+import { registerTools } from "./tools";
+
+const SECRET_CONN = "ssisLineage.sqlConnectionString";
 
 let channel: vscode.OutputChannel;
 let tree: LineageTreeProvider;
@@ -27,8 +31,15 @@ export function activate(context: vscode.ExtensionContext): void {
       }
     }),
     vscode.commands.registerCommand("ssisLineage.trace", () => traceCommand(context)),
-    vscode.commands.registerCommand("ssisLineage.exportTrace", () => exportTraceCommand())
+    vscode.commands.registerCommand("ssisLineage.exportTrace", () => exportTraceCommand()),
+    vscode.commands.registerCommand("ssisLineage.setConnection", () => setConnectionCommand(context)),
+    vscode.commands.registerCommand("ssisLineage.clearConnection", () => clearConnectionCommand(context))
   );
+
+  // Expose lineage to Copilot agent mode (no-op on older VS Code without the LM tools API).
+  if (vscode.lm && typeof vscode.lm.registerTool === "function") {
+    registerTools(context);
+  }
 }
 
 export function deactivate(): void {
@@ -52,11 +63,15 @@ async function scanCommand(context: vscode.ExtensionContext): Promise<void> {
   }
 
   const cfg = vscode.workspace.getConfiguration("ssisLineage");
+  const includeSqlProcedures = cfg.get<boolean>("includeSqlProcedures", false);
+  // Connection precedence: explicit setting → stored secret (set via “Set SQL Connection…”).
+  const settingConn = cfg.get<string>("sqlConnectionString", "").trim();
+  const sqlConnectionString = settingConn || (includeSqlProcedures ? (await context.secrets.get(SECRET_CONN)) ?? "" : "");
   const opts = {
     projectPath: path.dirname(project.fsPath),
     startPackage,
-    includeSqlProcedures: cfg.get<boolean>("includeSqlProcedures", false),
-    sqlConnectionString: cfg.get<string>("sqlConnectionString", ""),
+    includeSqlProcedures,
+    sqlConnectionString,
   };
 
   await vscode.window.withProgress(
@@ -67,6 +82,8 @@ async function scanCommand(context: vscode.ExtensionContext): Promise<void> {
         lastGraph = readLineageGraph(result.lineageJsonPath);
         tracer = new Tracer(lastGraph);
         lastTrace = undefined;
+        state.graph = lastGraph;
+        state.tracer = tracer;
         tree.setGraph(lastGraph);
         GraphPanel.showOrUpdate(context, lastGraph);
         const m = lastGraph.ColumnMappings?.length ?? 0;
@@ -199,4 +216,30 @@ async function exportTraceCommand(): Promise<void> {
   const csv = traceStepsToCsv(lastTrace.steps);
   const doc = await vscode.workspace.openTextDocument({ content: csv, language: "csv" });
   await vscode.window.showTextDocument(doc);
+}
+
+// ── connection (stored in SecretStorage, not settings, since it may carry credentials) ──
+
+async function setConnectionCommand(context: vscode.ExtensionContext): Promise<void> {
+  const value = await vscode.window.showInputBox({
+    prompt: "SQL Server connection string for stored-procedure enrichment (stored securely in VS Code Secret Storage).",
+    placeHolder: "Server=…;Database=…;Integrated Security=true   (or User ID=…;Password=…)",
+    password: true,
+    ignoreFocusOut: true,
+  });
+  if (value === undefined) {
+    return; // cancelled
+  }
+  if (value.trim() === "") {
+    await context.secrets.delete(SECRET_CONN);
+    vscode.window.showInformationMessage("SSIS Lineage: stored SQL connection cleared.");
+    return;
+  }
+  await context.secrets.store(SECRET_CONN, value.trim());
+  vscode.window.showInformationMessage("SSIS Lineage: SQL connection saved to Secret Storage.");
+}
+
+async function clearConnectionCommand(context: vscode.ExtensionContext): Promise<void> {
+  await context.secrets.delete(SECRET_CONN);
+  vscode.window.showInformationMessage("SSIS Lineage: stored SQL connection cleared.");
 }

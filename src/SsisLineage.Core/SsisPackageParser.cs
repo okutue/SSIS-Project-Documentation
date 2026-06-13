@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Xml.Linq;
+#if WINDOWS
 using Microsoft.SqlServer.Dts.Runtime;
 using Microsoft.SqlServer.Dts.Pipeline.Wrapper;
+#endif
 using SsisLineage.Core.Models;
 
 namespace SsisLineage.Core
@@ -86,6 +88,7 @@ namespace SsisLineage.Core
 
             Console.WriteLine($"[*] Parsing package: {packageName}");
 
+#if WINDOWS
             try
             {
                 var app = new Application();
@@ -140,8 +143,14 @@ namespace SsisLineage.Core
                 Console.WriteLine($"[Info] Using XML-based SSIS parser for {packageName} (DTS runtime not compatible with .NET 10 — this is normal). Results are equivalent.");
                 ParsePackageXmlFallback(packagePath, parentPackageId);
             }
+#else
+            // Cross-platform build: the SSIS DTS runtime is Windows-only and unavailable, so the
+            // XML parser is the sole path (it is what the Windows build falls back to anyway).
+            ParsePackageXmlFallback(packagePath, parentPackageId);
+#endif
         }
 
+#if WINDOWS
         private void ProcessExecutables(Executables executables, PackageNode packageNode, Dictionary<string, object> variables)
         {
             foreach (Executable executable in executables)
@@ -384,6 +393,7 @@ namespace SsisLineage.Core
             }
         }
 
+#endif
         // Builds a ColumnMap from a parsed SQL lineage record, carrying ALL extracted fields
         // (source/target server·db·schema·table, expression, join + filter conditions).
         // Shared by the native and XML-fallback Execute SQL handlers so neither path drops data.
@@ -419,6 +429,7 @@ namespace SsisLineage.Core
             };
         }
 
+#if WINDOWS
         private void ProcessPrecedenceConstraints(PrecedenceConstraints constraints)
         {
             foreach (PrecedenceConstraint pc in constraints)
@@ -435,6 +446,7 @@ namespace SsisLineage.Core
                 });
             }
         }
+#endif
 
         #region XML Fallback Parsers
         private void ParsePackageXmlFallback(string packagePath, string? parentPackageId)

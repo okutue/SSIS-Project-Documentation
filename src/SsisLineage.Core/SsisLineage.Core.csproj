@@ -1,11 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net10.0-windows</TargetFramework>
+    <!-- Multi-target: net10.0 is cross-platform (XML parser path, no SSIS runtime);
+         net10.0-windows additionally links the native DTS runtime for in-place parsing. -->
+    <TargetFrameworks>net10.0;net10.0-windows</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <UseWpf>false</UseWpf>
     <UseWindowsForms>false</UseWindowsForms>
+  </PropertyGroup>
+
+  <!-- Define WINDOWS for the Windows TFM so DTS-dependent code compiles in only there. -->
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0-windows'">
+    <DefineConstants>$(DefineConstants);WINDOWS</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
@@ -20,8 +27,9 @@
     that has SQL Server Integration Services 16.x installed. That script copies the
     four DLLs from the Windows GAC into lib/ssis/ (gitignored) so the build resolves them.
     See CONTRIBUTING.md for full setup instructions.
+    Windows TFM only — the cross-platform build never loads these.
   -->
-  <ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-windows'">
     <Reference Include="Microsoft.SqlServer.ManagedDTS">
       <HintPath>..\..\lib\ssis\Microsoft.SqlServer.ManagedDTS.dll</HintPath>
       <Private>true</Private>

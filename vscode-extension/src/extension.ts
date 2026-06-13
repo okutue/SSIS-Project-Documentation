@@ -88,12 +88,62 @@ async function scanCommand(context: vscode.ExtensionContext): Promise<void> {
         GraphPanel.showOrUpdate(context, lastGraph);
         const m = lastGraph.ColumnMappings?.length ?? 0;
         vscode.window.showInformationMessage(`SSIS Lineage: scan complete — ${m} column mappings.`);
+        surfaceScanDiagnostics(context, lastGraph, includeSqlProcedures);
       } catch (err) {
         channel.show(true);
         vscode.window.showErrorMessage(`SSIS Lineage: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
   );
+}
+
+/**
+ * Surface why lineage may be incomplete: engine warnings, and — the common case —
+ * a data-flow source backed by a stored procedure that wasn't traced through because
+ * stored-procedure enrichment is off. (Execute SQL tasks enrich regardless; data-flow
+ * components only when Include SQL Procedures is on, which is why a Source running a
+ * proc can appear disconnected from its staging table.)
+ */
+function surfaceScanDiagnostics(context: vscode.ExtensionContext, graph: LineageGraph, includeSqlProcedures: boolean): void {
+  const warnings = graph.Warnings ?? [];
+  if (warnings.length) {
+    channel.appendLine(`\n[ssis-lineage] ${warnings.length} warning(s):`);
+    for (const w of warnings) {
+      channel.appendLine("  - " + w);
+    }
+  }
+
+  if (!includeSqlProcedures && hasProcBackedDataFlowSource(graph)) {
+    vscode.window.showInformationMessage(
+      "SSIS Lineage: a data-flow source runs a stored procedure, but SQL procedure enrichment is off — " +
+      "so it isn't traced through to its source tables (it shows as a standalone node). Enable it and re-scan to connect the chain.",
+      "Enable & re-scan"
+    ).then((pick) => {
+      if (pick === "Enable & re-scan") {
+        vscode.workspace.getConfiguration("ssisLineage")
+          .update("includeSqlProcedures", true, vscode.ConfigurationTarget.Workspace)
+          .then(() => scanCommand(context));
+      }
+    });
+  } else if (warnings.length) {
+    vscode.window.showWarningMessage(
+      `SSIS Lineage: scan completed with ${warnings.length} warning(s) — some lineage may be incomplete (e.g. a procedure body couldn't be loaded).`,
+      "Show details"
+    ).then((pick) => { if (pick === "Show details") { channel.show(true); } });
+  }
+}
+
+/** Heuristic: a data-flow Source/Destination whose SQL is a stored-proc reference. */
+function hasProcBackedDataFlowSource(graph: LineageGraph): boolean {
+  const procRef = /^\s*(exec(ute)?\b|\[?[\w]+\]?\.\[?[\w]+\]?\s*;?\s*$)/i;
+  return (graph.Components ?? []).some((c) => {
+    const type = (c.Type ?? "").toLowerCase();
+    const sql = (c.SqlQueryOrTable ?? "").trim();
+    if (!sql || sql.includes("\n")) return false;
+    if (/^(select|with)\b/i.test(sql)) return false;
+    const isDataFlow = type.includes("source") || type.includes("destination") || type.includes("oledb");
+    return isDataFlow && procRef.test(sql);
+  });
 }
 
 /** Find .dtproj files in the workspace; prompt when there is more than one. */

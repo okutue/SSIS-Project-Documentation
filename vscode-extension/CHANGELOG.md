@@ -22,3 +22,7 @@ Phase 1 MVP scaffold.
 - **SSIS Lineage: Set SQL Connection… / Clear SQL Connection** — connection string
   stored in VS Code Secret Storage (preferred over the plaintext setting); scan uses
   setting → secret → project `.conmgr`, in that order.
+- **Scan diagnostics** — engine warnings are written to the output channel, and when a
+  data-flow source runs a stored procedure but SQL procedure enrichment is off (so it
+  appears disconnected from its source tables), the scan offers “Enable & re-scan”.
+  Previously this disconnect was silent.

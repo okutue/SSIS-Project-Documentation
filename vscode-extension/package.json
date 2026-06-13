@@ -4,6 +4,12 @@
   "description": "Scan SSIS projects and visualize / trace column-level data lineage inside VS Code.",
   "version": "0.1.0",
   "publisher": "okutue",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/okutue/SSIS-Project-Documentation.git",
+    "directory": "vscode-extension"
+  },
   "engines": {
     "vscode": "^1.95.0"
   },
@@ -194,11 +200,13 @@
     "copy-assets": "node scripts/copy-assets.mjs",
     "compile": "npm run copy-assets && tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "vscode:prepublish": "npm run compile"
+    "vscode:prepublish": "npm run compile",
+    "package": "node scripts/package.mjs"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
     "@types/vscode": "^1.95.0",
+    "@vscode/vsce": "^3.2.0",
     "typescript": "^5.4.0"
   }
 }

@@ -425,28 +425,29 @@ function registerMcpProvider(context: vscode.ExtensionContext): void {
     return; // older VS Code — users can still wire it via .vscode/mcp.json
   }
 
-  const dll = resolveMcpDll(context);
-  if (!dll) {
+  const mcp = resolveMcp(context);
+  if (!mcp) {
     return;
   }
 
   context.subscriptions.push(
     lm.registerMcpServerDefinitionProvider("ssisLineage.mcp", {
-      provideMcpServerDefinitions: () => [new McpStdio("SSIS Lineage", "dotnet", [dll])],
+      provideMcpServerDefinitions: () => [new McpStdio("SSIS Lineage", mcp.command, mcp.args)],
     })
   );
 }
 
-/** Locate the MCP server dll: bundled (packaged) or the sibling build output (dev). */
-function resolveMcpDll(context: vscode.ExtensionContext): string | undefined {
-  const bundled = path.join(context.extensionPath, "bin", "SsisLineage.Mcp.dll");
+/** How to launch the MCP server: bundled self-contained apphost (packaged), else dev dll via dotnet. */
+function resolveMcp(context: vscode.ExtensionContext): { command: string; args: string[] } | undefined {
+  const exe = process.platform === "win32" ? "SsisLineage.Mcp.exe" : "SsisLineage.Mcp";
+  const bundled = path.join(context.extensionPath, "bin", exe);
   if (fs.existsSync(bundled)) {
-    return bundled;
+    return { command: bundled, args: [] };
   }
   for (const cfg of ["Debug", "Release"]) {
-    const dev = path.join(context.extensionPath, "..", "src", "SsisLineage.Mcp", "bin", cfg, "net10.0", "SsisLineage.Mcp.dll");
-    if (fs.existsSync(dev)) {
-      return dev;
+    const devDll = path.join(context.extensionPath, "..", "src", "SsisLineage.Mcp", "bin", cfg, "net10.0", "SsisLineage.Mcp.dll");
+    if (fs.existsSync(devDll)) {
+      return { command: "dotnet", args: [devDll] };
     }
   }
   return undefined;

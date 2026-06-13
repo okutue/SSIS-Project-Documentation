@@ -6,6 +6,27 @@ Scan SSIS projects and explore / trace data lineage without leaving VS Code.
 > [SSIS-Project-Documentation](../) monorepo. It reuses the same .NET lineage
 > engine and the same Cytoscape graph renderer as the desktop/web app.
 
+## Packaging & install (self-contained VSIX)
+
+The extension bundles a self-contained build of the .NET engine (CLI + MCP server),
+so **end users need nothing installed** — no .NET runtime. VSIXes are
+platform-specific.
+
+```bash
+# From vscode-extension/. Requires the .NET 10 SDK (for the build) and Node.
+npm install
+npm run package                 # builds the VSIX for this machine's platform
+npm run package -- linux-x64    # or a specific target:
+                                #   win32-x64 | win32-arm64 | linux-x64 | linux-arm64 | darwin-x64 | darwin-arm64
+```
+
+This publishes the engine self-contained into `bin/`, compiles the extension, and
+writes `ssis-lineage-<target>.vsix` (~40 MB). Install it with **Extensions ▸ … ▸
+Install from VSIX…** (or `code --install-extension ssis-lineage-<target>.vsix`).
+
+> A 128×128 PNG `icon` (referenced from `package.json`) is still needed for a
+> Marketplace listing; it is optional for sideloaded VSIXes.
+
 ## What it does today
 
 - Detects `.dtproj` projects in the workspace.

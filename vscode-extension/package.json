@@ -173,8 +173,8 @@
         },
         "ssisLineage.includeSqlProcedures": {
           "type": "boolean",
-          "default": false,
-          "description": "Connect to SQL Server and resolve stored-procedure lineage for data-flow components."
+          "default": true,
+          "description": "Connect to SQL Server and resolve stored-procedure lineage for data-flow components. On by default so procedure-backed sources trace through to their source tables; turn off for a faster package/XML-only scan with no database connection."
         },
         "ssisLineage.sqlConnectionString": {
           "type": "string",

@@ -72,7 +72,7 @@ async function scanCommand(context: vscode.ExtensionContext): Promise<void> {
   }
 
   const cfg = vscode.workspace.getConfiguration("ssisLineage");
-  const includeSqlProcedures = cfg.get<boolean>("includeSqlProcedures", false);
+  const includeSqlProcedures = cfg.get<boolean>("includeSqlProcedures", true);
   // Connection precedence: explicit setting → stored secret (set via “Set SQL Connection…”).
   const settingConn = cfg.get<string>("sqlConnectionString", "").trim();
   const sqlConnectionString = settingConn || (includeSqlProcedures ? (await context.secrets.get(SECRET_CONN)) ?? "" : "");

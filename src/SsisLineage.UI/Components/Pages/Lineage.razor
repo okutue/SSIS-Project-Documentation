@@ -135,6 +135,11 @@
                                       Placeholder="@@Server=LINKEDSRV; @@Database=StagingDb"
                                       HelperText="@@Variable=value pairs separated by ; — resolves OPENQUERY/dynamic-SQL names so unqualified columns map to their real source table"
                                       Variant="Variant.Outlined" Margin="Margin.Dense" Class="mt-2" Lines="2" />
+
+                        <MudTextField @bind-Value="connectionManagerMapText" Label="Connection manager overrides (optional)"
+                                      Placeholder="Staging=Server=.\SQLSERVER2025;Database=Staging;Integrated Security=true"
+                                      HelperText="One per line — ConnectionManagerName=ConnectionString. Overrides that manager's .conmgr connection (by name or GUID); others use the connection string above."
+                                      Variant="Variant.Outlined" Margin="Margin.Dense" Class="mt-2" Lines="3" />
                     }
 
                     <MudButton OnClick="GenerateReportAsync" Disabled="isGenerating || isLoadingReport" Variant="Variant.Filled"
@@ -430,6 +435,7 @@
     private bool autoResolveLinkedServers = true;
     private string linkedServerMapText = "";
     private string sqlVariableValuesText = "";
+    private string connectionManagerMapText = "";
     private bool isGenerating = false;
     private bool isLoadingReport = false;
     private bool _controlsExpanded = true;
@@ -617,7 +623,8 @@
                     sqlConnectionString,
                     ParseLinkedServerMap(linkedServerMapText),
                     autoResolveLinkedServers,
-                    ParseKeyValuePairs(sqlVariableValuesText)));
+                    ParseKeyValuePairs(sqlVariableValuesText),
+                    ParseConnectionManagerMap(connectionManagerMapText)));
 
             graphFilterPackageId = "";
             graphFilterTaskId = "";
@@ -660,6 +667,25 @@
             if (pair.Length != 2) continue;
             var key = pair[0].Trim().Trim('[', ']');
             var value = pair[1].Trim().Trim('[', ']');
+            if (key.Length > 0 && value.Length > 0)
+                map[key] = value;
+        }
+        return map;
+    }
+
+    // Parses connection-manager overrides: one per LINE, "Name=ConnectionString".
+    // Split on the FIRST '=' only — connection strings themselves contain '=' and ';'.
+    private static Dictionary<string, string> ParseConnectionManagerMap(string? text)
+    {
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (string.IsNullOrWhiteSpace(text)) return map;
+
+        foreach (var line in text.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries))
+        {
+            var eq = line.IndexOf('=');
+            if (eq <= 0) continue;
+            var key = line[..eq].Trim().Trim('[', ']');
+            var value = line[(eq + 1)..].Trim();
             if (key.Length > 0 && value.Length > 0)
                 map[key] = value;
         }

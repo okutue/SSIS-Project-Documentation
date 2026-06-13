@@ -40,6 +40,17 @@ export function resolveCli(context: vscode.ExtensionContext): CliInvocation | nu
     return { command: bundled, baseArgs: [], label: exe };
   }
 
+  // Dev fallback: when running from the monorepo (F5), find the sibling CLI build output
+  // so testing needs no configuration. Prefer Debug, then Release.
+  for (const cfg of ["Debug", "Release"]) {
+    const devDll = path.join(
+      context.extensionPath, "..", "src", "SsisLineage.Cli", "bin", cfg, "net10.0", "SsisLineage.Cli.dll"
+    );
+    if (fs.existsSync(devDll)) {
+      return { command: "dotnet", baseArgs: [devDll], label: `dotnet SsisLineage.Cli.dll (${cfg})` };
+    }
+  }
+
   vscode.window.showErrorMessage(
     "SSIS Lineage: no CLI found. Set 'ssisLineage.cliPath' to the built SsisLineage.Cli (.dll or executable).",
     "Open Settings"

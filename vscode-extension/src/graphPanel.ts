@@ -6,6 +6,9 @@ import { LineageGraph } from "./lineage";
  * (Cytoscape) copied from the Blazor RCL. One panel is reused across scans.
  */
 export class GraphPanel {
+  /** Drill-down: invoked when a column is clicked in the webview's column view. */
+  static onTraceFrom: ((target: string) => void) | undefined;
+
   private static current: GraphPanel | undefined;
   private readonly panel: vscode.WebviewPanel;
   private graph: LineageGraph | undefined;
@@ -66,6 +69,8 @@ export class GraphPanel {
       (msg) => {
         if (msg?.type === "ready") {
           this.postGraph();
+        } else if (msg?.type === "traceFrom" && typeof msg.target === "string") {
+          GraphPanel.onTraceFrom?.(msg.target);
         }
       },
       null,

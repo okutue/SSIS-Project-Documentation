@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import * as path from "node:path";
+import * as fs from "node:fs";
 import { resolveCli, runScan, runLabels, runTrace, LabelHit } from "./cli";
 import { readLineageGraph, LineageGraph } from "./lineage";
 import { LineageTreeProvider } from "./lineageTree";
@@ -31,14 +32,22 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
     vscode.commands.registerCommand("ssisLineage.trace", () => traceCommand(context)),
     vscode.commands.registerCommand("ssisLineage.exportTrace", () => exportTraceCommand()),
+    vscode.commands.registerCommand("ssisLineage.openExports", () => openExportsCommand()),
+    vscode.commands.registerCommand("ssisLineage.loadLineage", () => loadLineageCommand(context)),
     vscode.commands.registerCommand("ssisLineage.setConnection", () => setConnectionCommand(context)),
     vscode.commands.registerCommand("ssisLineage.clearConnection", () => clearConnectionCommand(context))
   );
+
+  // Drill-down: clicking a column in the webview traces from it.
+  GraphPanel.onTraceFrom = (target) => runAndShowTrace(context, target, "both", "column");
 
   // Expose lineage to Copilot agent mode (no-op on older VS Code without the LM tools API).
   if (vscode.lm && typeof vscode.lm.registerTool === "function") {
     registerTools(context);
   }
+
+  // Auto-register the MCP server (VS Code 1.101+) so agent mode can use it with no mcp.json.
+  registerMcpProvider(context);
 }
 
 export function deactivate(): void {
@@ -82,6 +91,7 @@ async function scanCommand(context: vscode.ExtensionContext): Promise<void> {
         lastTraceCsv = undefined;
         state.graph = lastGraph;
         state.lineageJsonPath = result.lineageJsonPath;
+        state.outputDir = result.outputDir;
         state.cli = cli;
         state.labels = await runLabels(cli, result.lineageJsonPath);
         tree.setGraph(lastGraph);
@@ -204,14 +214,25 @@ async function traceCommand(context: vscode.ExtensionContext): Promise<void> {
     return;
   }
 
+  await runAndShowTrace(context, hit.display, direction, hit.scope);
+}
+
+/** Shared by the Trace command and webview drill-down: trace a target and render it. */
+async function runAndShowTrace(
+  context: vscode.ExtensionContext, target: string, direction: Direction, scopeHint: "column" | "table"
+): Promise<void> {
+  if (!state.cli || !state.lineageJsonPath) {
+    vscode.window.showInformationMessage("SSIS Lineage: run “Scan Project” first.");
+    return;
+  }
   try {
-    const result = await runTrace(state.cli, state.lineageJsonPath, hit.display, direction);
+    const result = await runTrace(state.cli, state.lineageJsonPath, target, direction);
     if (!result.found || !result.subGraph) {
-      vscode.window.showInformationMessage(`SSIS Lineage: no ${direction} lineage for ${hit.display}.`);
+      vscode.window.showInformationMessage(`SSIS Lineage: no ${direction} lineage for ${target}.`);
       return;
     }
     lastTraceCsv = result.csv;
-    GraphPanel.showTrace(context, result.subGraph as LineageGraph, result.focusLabel ?? hit.display, result.focusScope ?? hit.scope);
+    GraphPanel.showTrace(context, result.subGraph as LineageGraph, result.focusLabel ?? target, result.focusScope ?? scopeHint);
     vscode.window.showInformationMessage(
       `Trace: ${result.focusLabel} — ${result.stepCount} steps across ${result.tableCount} tables. Run “Export Trace (CSV)” to save.`
     );
@@ -287,4 +308,109 @@ async function setConnectionCommand(context: vscode.ExtensionContext): Promise<v
 async function clearConnectionCommand(context: vscode.ExtensionContext): Promise<void> {
   await context.secrets.delete(SECRET_CONN);
   vscode.window.showInformationMessage("SSIS Lineage: stored SQL connection cleared.");
+}
+
+// ── load an existing lineage.json (no re-scan) ───────────────────────────────
+
+async function loadLineageCommand(context: vscode.ExtensionContext): Promise<void> {
+  const picks = await vscode.window.showOpenDialog({
+    canSelectMany: false,
+    filters: { "Lineage JSON": ["json"] },
+    openLabel: "Load lineage",
+  });
+  if (!picks || picks.length === 0) {
+    return;
+  }
+  const jsonPath = picks[0].fsPath;
+  try {
+    lastGraph = readLineageGraph(jsonPath);
+    lastTraceCsv = undefined;
+    state.graph = lastGraph;
+    state.lineageJsonPath = jsonPath;
+    state.outputDir = path.dirname(jsonPath);
+    state.cli = resolveCli(context) ?? undefined; // search/trace need the engine; diagram/tree don't
+    state.labels = state.cli ? await runLabels(state.cli, jsonPath) : [];
+    tree.setGraph(lastGraph);
+    GraphPanel.showOrUpdate(context, lastGraph);
+    vscode.window.showInformationMessage(
+      `SSIS Lineage: loaded ${path.basename(jsonPath)} — ${lastGraph.ColumnMappings?.length ?? 0} column mappings.`
+    );
+  } catch (err) {
+    vscode.window.showErrorMessage(`SSIS Lineage: could not load ${path.basename(jsonPath)} — ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
+// ── exports (the engine writes these during scan; expose them) ───────────────
+
+async function openExportsCommand(): Promise<void> {
+  if (!state.outputDir) {
+    vscode.window.showInformationMessage("SSIS Lineage: run “Scan Project” first.");
+    return;
+  }
+  const exports: { label: string; file: string; detail: string }[] = [
+    { label: "JSON", file: "lineage.json", detail: "Full lineage graph" },
+    { label: "YAML", file: "lineage.yaml", detail: "Full lineage graph (YAML)" },
+    { label: "Cypher", file: "lineage.cypher", detail: "Neo4j import" },
+    { label: "Markdown", file: "execution-flow.md", detail: "Execution-flow report" },
+    { label: "HTML", file: "lineage-report.html", detail: "Standalone HTML report" },
+    { label: "Mermaid", file: "lineage.mmd", detail: "Mermaid flowchart" },
+    { label: "OpenLineage", file: "lineage.openlineage.json", detail: "OpenLineage run events" },
+  ].filter((e) => fs.existsSync(path.join(state.outputDir!, e.file)));
+
+  if (exports.length === 0) {
+    vscode.window.showInformationMessage("SSIS Lineage: no export files found for the last scan.");
+    return;
+  }
+
+  const pick = await vscode.window.showQuickPick(
+    exports.map((e) => ({ label: e.label, description: e.file, detail: e.detail, file: e.file })),
+    { placeHolder: "Open a lineage export" }
+  );
+  if (!pick) {
+    return;
+  }
+  const uri = vscode.Uri.file(path.join(state.outputDir, pick.file));
+  if (pick.file.endsWith(".html")) {
+    await vscode.env.openExternal(uri); // render in the browser
+  } else {
+    await vscode.commands.executeCommand("vscode.open", uri);
+  }
+}
+
+// ── MCP server auto-registration (VS Code 1.101+) ────────────────────────────
+
+function registerMcpProvider(context: vscode.ExtensionContext): void {
+  const lm = vscode.lm as unknown as {
+    registerMcpServerDefinitionProvider?: (id: string, provider: unknown) => vscode.Disposable;
+  };
+  const McpStdio = (vscode as unknown as { McpStdioServerDefinition?: new (...a: unknown[]) => unknown }).McpStdioServerDefinition;
+  if (typeof lm.registerMcpServerDefinitionProvider !== "function" || !McpStdio) {
+    return; // older VS Code — users can still wire it via .vscode/mcp.json
+  }
+
+  const dll = resolveMcpDll(context);
+  if (!dll) {
+    return;
+  }
+
+  context.subscriptions.push(
+    lm.registerMcpServerDefinitionProvider("ssisLineage.mcp", {
+      provideMcpServerDefinitions: () => [new McpStdio("SSIS Lineage", "dotnet", [dll])],
+    })
+  );
+}
+
+/** Locate the MCP server dll: bundled (packaged) or the sibling build output (dev). */
+function resolveMcpDll(context: vscode.ExtensionContext): string | undefined {
+  const bundled = path.join(context.extensionPath, "bin", "SsisLineage.Mcp.dll");
+  if (fs.existsSync(bundled)) {
+    return bundled;
+  }
+  for (const cfg of ["Debug", "Release"]) {
+    const dev = path.join(context.extensionPath, "..", "src", "SsisLineage.Mcp", "bin", cfg, "net10.0", "SsisLineage.Mcp.dll");
+    if (fs.existsSync(dev)) {
+      return dev;
+    }
+  }
+  return undefined;
 }

@@ -37,6 +37,13 @@
     }
   });
 
+  // Drill-down: clicking a column in the column view traces from it.
+  if (window.cyLineage && window.cyLineage.setColumnClickHandler) {
+    window.cyLineage.setColumnClickHandler((tip) => {
+      if (tip) vscode.postMessage({ type: "traceFrom", target: tip });
+    });
+  }
+
   document.getElementById("btn-object").addEventListener("click", () => setMode("object"));
   document.getElementById("btn-column").addEventListener("click", () => setMode("column"));
   document.getElementById("btn-fit").addEventListener("click", () => window.cyLineage && window.cyLineage.fit());

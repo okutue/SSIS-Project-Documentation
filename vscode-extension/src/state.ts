@@ -10,6 +10,7 @@ import { CliInvocation, LabelHit } from "./cli";
 export interface LineageState {
   graph?: LineageGraph;
   lineageJsonPath?: string;
+  outputDir?: string;
   labels?: LabelHit[];
   cli?: CliInvocation;
 }

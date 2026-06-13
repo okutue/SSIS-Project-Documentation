@@ -33,3 +33,10 @@ Phase 1 MVP scaffold.
   data-flow source runs a stored procedure but SQL procedure enrichment is off (so it
   appears disconnected from its source tables), the scan offers “Enable & re-scan”.
   Previously this disconnect was silent.
+- **Click-through drill-down** — clicking a column in the column view traces from it
+  and re-renders.
+- **Open Exports…** — open any of the scan's exports (JSON, YAML, Cypher, Markdown,
+  HTML, Mermaid, OpenLineage); HTML opens in the browser.
+- **Load Lineage (JSON)…** — open a previously saved `lineage.json` without re-scanning.
+- **MCP server auto-registration** — on VS Code 1.101+ the bundled MCP server is
+  registered automatically for agent mode (no manual `mcp.json`).

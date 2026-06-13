@@ -47,6 +47,16 @@
         "category": "SSIS Lineage"
       },
       {
+        "command": "ssisLineage.openExports",
+        "title": "Open Exports…",
+        "category": "SSIS Lineage"
+      },
+      {
+        "command": "ssisLineage.loadLineage",
+        "title": "Load Lineage (JSON)…",
+        "category": "SSIS Lineage"
+      },
+      {
         "command": "ssisLineage.setConnection",
         "title": "Set SQL Connection…",
         "category": "SSIS Lineage"
@@ -55,6 +65,12 @@
         "command": "ssisLineage.clearConnection",
         "title": "Clear SQL Connection",
         "category": "SSIS Lineage"
+      }
+    ],
+    "mcpServerDefinitionProviders": [
+      {
+        "id": "ssisLineage.mcp",
+        "label": "SSIS Lineage"
       }
     ],
     "languageModelTools": [

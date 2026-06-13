@@ -18,9 +18,14 @@ Scan SSIS projects and explore / trace data lineage without leaving VS Code.
   the focused node highlighted. Tracing runs in-process (a TypeScript port of the
   engine's tracer over the loaded `lineage.json`), so it is instant.
 - **SSIS Lineage: Export Trace (CSV)** — opens the last trace as a CSV document.
+- **Click a column** in the column view to trace from it (drill-down).
+- **SSIS Lineage: Open Exports…** — open the scan's JSON / YAML / Cypher / Markdown /
+  HTML / Mermaid / OpenLineage outputs.
+- **SSIS Lineage: Load Lineage (JSON)…** — open a saved `lineage.json` without re-scanning.
 - **Copilot agent tools** — once a project is scanned, Copilot agent mode can call
   `#ssisSearch`, `#ssisTrace`, and a status tool to answer questions like “what feeds
-  `DW.Dim_Customers.Email`?” or “what breaks if I change `source.Customers`?”.
+  `DW.Dim_Customers.Email`?” or “what breaks if I change `source.Customers`?”. On
+  VS Code 1.101+ the bundled MCP server is also auto-registered for agent mode.
 - **SSIS Lineage: Set SQL Connection…** — stores a connection string in VS Code
   Secret Storage (preferred over the plaintext setting) for stored-procedure enrichment.
 

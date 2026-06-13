@@ -120,7 +120,9 @@
 
                     @if (includeSqlProcedures)
                     {
-                        <MudTextField @bind-Value="sqlConnectionString" Label="SQL connection string override (optional)"
+                        <MudTextField @bind-Value="sqlConnectionString" Label="Default SQL connection (fallback, optional)"
+                                      Placeholder="Server=.\SQLSERVER2025;Database=Staging;Integrated Security=true"
+                                      HelperText="Single fallback used only for components whose connection manager isn't in the project's .conmgr files. Leave empty to use the project's own connections. For per-database redirection use 'Connection manager overrides' below."
                                       Variant="Variant.Outlined" Margin="Margin.Dense" Class="mt-2" Lines="2" />
 
                         <MudCheckBox @bind-Value="autoResolveLinkedServers" Color="Color.Primary" Dense="true"

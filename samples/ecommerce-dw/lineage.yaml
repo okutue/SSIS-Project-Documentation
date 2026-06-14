@@ -1,0 +1,1561 @@
+packages:
+- id: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  name: Stage
+  path: C:\Project\SSIS\SSIS_Documentation\SSIS_Documentation\Stage.dtsx
+  projectPath: C:\Project\SSIS\SSIS_Documentation\SSIS_Documentation
+  fileHash: 2d6eaee3b35944a159f334b6924cf4ae80bd88c46602c319770a2297d5735899
+  variables: []
+  connectionManagers: []
+- id: '{6CE5C704-B864-4E9D-A608-1ACE53E51E03}'
+  name: DW_Load
+  path: C:\Project\SSIS\SSIS_Documentation\SSIS_Documentation\DW_Load.dtsx
+  projectPath: C:\Project\SSIS\SSIS_Documentation\SSIS_Documentation
+  fileHash: 8b73734f7b3a41878e623ba9823762affd87c260e1da1ff7b8edf8af0aca8ea6
+  variables: []
+  connectionManagers: []
+tasks:
+- id: Package\Customers
+  name: Customers
+  type: Microsoft.ExecuteSQLTask
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  packageName: Stage
+  description: ''
+- id: Package\Load DW Customers
+  name: Load DW Customers
+  type: Microsoft.ExecutePackageTask
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  packageName: Stage
+  description: ''
+- id: Package\Load Dim Customers
+  name: Load Dim Customers
+  type: Microsoft.Pipeline
+  packageId: '{6CE5C704-B864-4E9D-A608-1ACE53E51E03}'
+  packageName: DW_Load
+  description: ''
+- id: Package\Order Items
+  name: Order Items
+  type: Microsoft.ExecuteSQLTask
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  packageName: Stage
+  description: ''
+- id: Package\Orders
+  name: Orders
+  type: Microsoft.ExecuteSQLTask
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  packageName: Stage
+  description: ''
+- id: Package\Start
+  name: Start
+  type: Microsoft.ExecuteSQLTask
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  packageName: Stage
+  description: ''
+components:
+- id: Package\Customers_sql
+  name: Customers
+  type: Execute SQL Task
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Customers
+  connectionManager: '{AF2C2600-2DCE-498A-AC64-A7FDC44BDB39}'
+  sqlQueryOrTable: stage.usp_stage_load_customers
+  parameterBindings: []
+- id: Package\Load Dim Customers\OLE DB Destination
+  name: OLE DB Destination
+  type: Microsoft.OLEDBDestination
+  packageId: '{6CE5C704-B864-4E9D-A608-1ACE53E51E03}'
+  taskId: Package\Load Dim Customers
+  connectionManager: Project.ConnectionManagers[DW]
+  sqlQueryOrTable: '[DW].[Dim_Customers]'
+  parameterBindings: []
+- id: Package\Load Dim Customers\OLE DB Source
+  name: OLE DB Source
+  type: Microsoft.OLEDBSource
+  packageId: '{6CE5C704-B864-4E9D-A608-1ACE53E51E03}'
+  taskId: Package\Load Dim Customers
+  connectionManager: Project.ConnectionManagers[Staging]
+  sqlQueryOrTable: '[stage].[usp_Get_LoadCustomers]'
+  parameterBindings: []
+- id: Package\Order Items_sql
+  name: Order Items
+  type: Execute SQL Task
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Order Items
+  connectionManager: '{AF2C2600-2DCE-498A-AC64-A7FDC44BDB39}'
+  sqlQueryOrTable: stage.usp_stage_load_orderitems
+  parameterBindings: []
+- id: Package\Orders_sql
+  name: Orders
+  type: Execute SQL Task
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Orders
+  connectionManager: '{AF2C2600-2DCE-498A-AC64-A7FDC44BDB39}'
+  sqlQueryOrTable: stage.usp_stage_load_orders
+  parameterBindings: []
+- id: Package\Start_sql
+  name: Start
+  type: Execute SQL Task
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Start
+  connectionManager: '{AF2C2600-2DCE-498A-AC64-A7FDC44BDB39}'
+  sqlQueryOrTable: SELECT 1
+  parameterBindings: []
+columnMappings:
+- id: a599db87-e011-4f31-a1d4-917685ac9271
+  packageId: '{6CE5C704-B864-4E9D-A608-1ACE53E51E03}'
+  taskId: Package\Load Dim Customers
+  sourceComponentId: Package\Load Dim Customers\OLE DB Source
+  sourceComponentName: OLE DB Source
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: ''
+  sourceTable: ''
+  sourceColumnName: SourceCustomerID
+  sourceExpression: ''
+  targetComponentId: Package\Load Dim Customers\OLE DB Destination
+  targetComponentName: DW.Dim_Customers
+  targetServer: .\SQLSERVER2025
+  targetDatabase: DW
+  targetSchema: DW
+  targetTable: Dim_Customers
+  targetColumnName: SourceCustomerID
+  operationType: XML_FALLBACK
+  procedureName: ''
+  joinDetails: ''
+  filterConditions: ''
+- id: 705a0be0-806f-4b44-b4a6-778be9c0fa2c
+  packageId: '{6CE5C704-B864-4E9D-A608-1ACE53E51E03}'
+  taskId: Package\Load Dim Customers
+  sourceComponentId: Package\Load Dim Customers\OLE DB Source
+  sourceComponentName: OLE DB Source
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: ''
+  sourceTable: ''
+  sourceColumnName: CustomerCode
+  sourceExpression: ''
+  targetComponentId: Package\Load Dim Customers\OLE DB Destination
+  targetComponentName: DW.Dim_Customers
+  targetServer: .\SQLSERVER2025
+  targetDatabase: DW
+  targetSchema: DW
+  targetTable: Dim_Customers
+  targetColumnName: CustomerCode
+  operationType: XML_FALLBACK
+  procedureName: ''
+  joinDetails: ''
+  filterConditions: ''
+- id: 359357ff-0ad5-4799-a212-35e74e7d2321
+  packageId: '{6CE5C704-B864-4E9D-A608-1ACE53E51E03}'
+  taskId: Package\Load Dim Customers
+  sourceComponentId: Package\Load Dim Customers\OLE DB Source
+  sourceComponentName: OLE DB Source
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: ''
+  sourceTable: ''
+  sourceColumnName: FirstName
+  sourceExpression: ''
+  targetComponentId: Package\Load Dim Customers\OLE DB Destination
+  targetComponentName: DW.Dim_Customers
+  targetServer: .\SQLSERVER2025
+  targetDatabase: DW
+  targetSchema: DW
+  targetTable: Dim_Customers
+  targetColumnName: FirstName
+  operationType: XML_FALLBACK
+  procedureName: ''
+  joinDetails: ''
+  filterConditions: ''
+- id: 01cfa045-00bd-4bd4-8244-a6b6124c1b5e
+  packageId: '{6CE5C704-B864-4E9D-A608-1ACE53E51E03}'
+  taskId: Package\Load Dim Customers
+  sourceComponentId: Package\Load Dim Customers\OLE DB Source
+  sourceComponentName: OLE DB Source
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: ''
+  sourceTable: ''
+  sourceColumnName: LastName
+  sourceExpression: ''
+  targetComponentId: Package\Load Dim Customers\OLE DB Destination
+  targetComponentName: DW.Dim_Customers
+  targetServer: .\SQLSERVER2025
+  targetDatabase: DW
+  targetSchema: DW
+  targetTable: Dim_Customers
+  targetColumnName: LastName
+  operationType: XML_FALLBACK
+  procedureName: ''
+  joinDetails: ''
+  filterConditions: ''
+- id: c82d050c-185b-411a-ba1c-d9512736b94c
+  packageId: '{6CE5C704-B864-4E9D-A608-1ACE53E51E03}'
+  taskId: Package\Load Dim Customers
+  sourceComponentId: Package\Load Dim Customers\OLE DB Source
+  sourceComponentName: OLE DB Source
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: ''
+  sourceTable: ''
+  sourceColumnName: Email
+  sourceExpression: ''
+  targetComponentId: Package\Load Dim Customers\OLE DB Destination
+  targetComponentName: DW.Dim_Customers
+  targetServer: .\SQLSERVER2025
+  targetDatabase: DW
+  targetSchema: DW
+  targetTable: Dim_Customers
+  targetColumnName: Email
+  operationType: XML_FALLBACK
+  procedureName: ''
+  joinDetails: ''
+  filterConditions: ''
+- id: e09258a7-9ea4-43aa-b373-9e97608a2a7b
+  packageId: '{6CE5C704-B864-4E9D-A608-1ACE53E51E03}'
+  taskId: Package\Load Dim Customers
+  sourceComponentId: Package\Load Dim Customers\OLE DB Source
+  sourceComponentName: OLE DB Source
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: ''
+  sourceTable: ''
+  sourceColumnName: Phone
+  sourceExpression: ''
+  targetComponentId: Package\Load Dim Customers\OLE DB Destination
+  targetComponentName: DW.Dim_Customers
+  targetServer: .\SQLSERVER2025
+  targetDatabase: DW
+  targetSchema: DW
+  targetTable: Dim_Customers
+  targetColumnName: Phone
+  operationType: XML_FALLBACK
+  procedureName: ''
+  joinDetails: ''
+  filterConditions: ''
+- id: b6d6715a-1a19-4e74-b9a7-1bedd9041062
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Start
+  sourceComponentId: Package\Start_sql
+  sourceComponentName: Start
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: ''
+  sourceSchema: ''
+  sourceTable: ''
+  sourceColumnName: ''
+  sourceExpression: 1
+  targetComponentId: Package\Start_sql
+  targetComponentName: Start
+  targetServer: .\SQLSERVER2025
+  targetDatabase: ''
+  targetSchema: ''
+  targetTable: ''
+  targetColumnName: ''
+  operationType: SELECT
+  procedureName: ''
+  joinDetails: ''
+  filterConditions: ''
+- id: fadf59a8-f77e-4c00-a78e-06becf4ae4da
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Customers
+  sourceComponentId: Package\Customers_sql::stage.usp_stage_load_customers
+  sourceComponentName: usp_stage_load_customers
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: stage
+  sourceTable: usp_stage_load_customers
+  sourceColumnName: ''
+  sourceExpression: '@BatchID'
+  targetComponentId: Package\Customers_sql
+  targetComponentName: stage.Customers_stg
+  targetServer: .\SQLSERVER2025
+  targetDatabase: Staging
+  targetSchema: stage
+  targetTable: Customers_stg
+  targetColumnName: LoadBatchID
+  operationType: SQL_PROC_INSERT
+  procedureName: stage.usp_stage_load_customers
+  joinDetails: ''
+  filterConditions: >-
+    NOT EXISTS (SELECT 1
+                FROM   stage.Customers_stg AS s
+                WHERE  s.SourceCustomerID = c.CustomerID)
+- id: 582d9e90-5c8b-4323-90a8-8c11bd22f635
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Customers
+  sourceComponentId: Package\Customers_sql::stage.usp_stage_load_customers
+  sourceComponentName: usp_stage_load_customers
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: stage
+  sourceTable: usp_stage_load_customers
+  sourceColumnName: ''
+  sourceExpression: SYSUTCDATETIME()
+  targetComponentId: Package\Customers_sql
+  targetComponentName: stage.Customers_stg
+  targetServer: .\SQLSERVER2025
+  targetDatabase: Staging
+  targetSchema: stage
+  targetTable: Customers_stg
+  targetColumnName: LoadDate
+  operationType: SQL_PROC_INSERT
+  procedureName: stage.usp_stage_load_customers
+  joinDetails: ''
+  filterConditions: >-
+    NOT EXISTS (SELECT 1
+                FROM   stage.Customers_stg AS s
+                WHERE  s.SourceCustomerID = c.CustomerID)
+- id: 219efb73-c6b2-4089-b924-587a36cd2d2d
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Customers
+  sourceComponentId: Package\Customers_sql::source.Customers
+  sourceComponentName: source.Customers
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: source
+  sourceTable: Customers
+  sourceColumnName: CustomerID
+  sourceExpression: c.CustomerID
+  targetComponentId: Package\Customers_sql
+  targetComponentName: stage.Customers_stg
+  targetServer: .\SQLSERVER2025
+  targetDatabase: Staging
+  targetSchema: stage
+  targetTable: Customers_stg
+  targetColumnName: SourceCustomerID
+  operationType: SQL_PROC_INSERT
+  procedureName: stage.usp_stage_load_customers
+  joinDetails: ''
+  filterConditions: >-
+    NOT EXISTS (SELECT 1
+                FROM   stage.Customers_stg AS s
+                WHERE  s.SourceCustomerID = c.CustomerID)
+- id: 71b5fece-e3b5-4e3e-9371-24988fc484b3
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Customers
+  sourceComponentId: Package\Customers_sql::source.Customers
+  sourceComponentName: source.Customers
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: source
+  sourceTable: Customers
+  sourceColumnName: CustomerCode
+  sourceExpression: LEFT(LTRIM(RTRIM(c.CustomerCode)), 20)
+  targetComponentId: Package\Customers_sql
+  targetComponentName: stage.Customers_stg
+  targetServer: .\SQLSERVER2025
+  targetDatabase: Staging
+  targetSchema: stage
+  targetTable: Customers_stg
+  targetColumnName: CustomerCode
+  operationType: SQL_PROC_INSERT
+  procedureName: stage.usp_stage_load_customers
+  joinDetails: ''
+  filterConditions: >-
+    NOT EXISTS (SELECT 1
+                FROM   stage.Customers_stg AS s
+                WHERE  s.SourceCustomerID = c.CustomerID)
+- id: 716dd2f7-0581-4d78-929d-fc539dd9e2c8
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Customers
+  sourceComponentId: Package\Customers_sql::source.Customers
+  sourceComponentName: source.Customers
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: source
+  sourceTable: Customers
+  sourceColumnName: FirstName
+  sourceExpression: LEFT(LTRIM(RTRIM(c.FirstName)), 50)
+  targetComponentId: Package\Customers_sql
+  targetComponentName: stage.Customers_stg
+  targetServer: .\SQLSERVER2025
+  targetDatabase: Staging
+  targetSchema: stage
+  targetTable: Customers_stg
+  targetColumnName: FirstName
+  operationType: SQL_PROC_INSERT
+  procedureName: stage.usp_stage_load_customers
+  joinDetails: ''
+  filterConditions: >-
+    NOT EXISTS (SELECT 1
+                FROM   stage.Customers_stg AS s
+                WHERE  s.SourceCustomerID = c.CustomerID)
+- id: 5c351635-465b-4c2a-90ff-b40480303881
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Customers
+  sourceComponentId: Package\Customers_sql::source.Customers
+  sourceComponentName: source.Customers
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: source
+  sourceTable: Customers
+  sourceColumnName: LastName
+  sourceExpression: LEFT(LTRIM(RTRIM(c.LastName)), 50)
+  targetComponentId: Package\Customers_sql
+  targetComponentName: stage.Customers_stg
+  targetServer: .\SQLSERVER2025
+  targetDatabase: Staging
+  targetSchema: stage
+  targetTable: Customers_stg
+  targetColumnName: LastName
+  operationType: SQL_PROC_INSERT
+  procedureName: stage.usp_stage_load_customers
+  joinDetails: ''
+  filterConditions: >-
+    NOT EXISTS (SELECT 1
+                FROM   stage.Customers_stg AS s
+                WHERE  s.SourceCustomerID = c.CustomerID)
+- id: 73e2063f-95c7-474c-9356-5ac6b00bcd67
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Customers
+  sourceComponentId: Package\Customers_sql::source.Customers
+  sourceComponentName: source.Customers
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: source
+  sourceTable: Customers
+  sourceColumnName: Email
+  sourceExpression: CASE WHEN TRY_CONVERT (NVARCHAR (255), c.Email) IS NULL THEN NULL ELSE LEFT(c.Email, 255) END
+  targetComponentId: Package\Customers_sql
+  targetComponentName: stage.Customers_stg
+  targetServer: .\SQLSERVER2025
+  targetDatabase: Staging
+  targetSchema: stage
+  targetTable: Customers_stg
+  targetColumnName: Email
+  operationType: SQL_PROC_INSERT
+  procedureName: stage.usp_stage_load_customers
+  joinDetails: ''
+  filterConditions: >-
+    NOT EXISTS (SELECT 1
+                FROM   stage.Customers_stg AS s
+                WHERE  s.SourceCustomerID = c.CustomerID)
+- id: 027b6919-d009-47a8-9b8b-af370eb4e2e0
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Customers
+  sourceComponentId: Package\Customers_sql::source.Customers
+  sourceComponentName: source.Customers
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: source
+  sourceTable: Customers
+  sourceColumnName: Phone
+  sourceExpression: LEFT(ISNULL(c.Phone, N''), 30)
+  targetComponentId: Package\Customers_sql
+  targetComponentName: stage.Customers_stg
+  targetServer: .\SQLSERVER2025
+  targetDatabase: Staging
+  targetSchema: stage
+  targetTable: Customers_stg
+  targetColumnName: Phone
+  operationType: SQL_PROC_INSERT
+  procedureName: stage.usp_stage_load_customers
+  joinDetails: ''
+  filterConditions: >-
+    NOT EXISTS (SELECT 1
+                FROM   stage.Customers_stg AS s
+                WHERE  s.SourceCustomerID = c.CustomerID)
+- id: 180d8a0b-2be8-421b-a9fc-b3c3f67aa7b6
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Customers
+  sourceComponentId: Package\Customers_sql::stage.usp_stage_load_customers
+  sourceComponentName: usp_stage_load_customers
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: stage
+  sourceTable: usp_stage_load_customers
+  sourceColumnName: ''
+  sourceExpression: N'Loaded'
+  targetComponentId: Package\Customers_sql
+  targetComponentName: stage.Customers_stg
+  targetServer: .\SQLSERVER2025
+  targetDatabase: Staging
+  targetSchema: stage
+  targetTable: Customers_stg
+  targetColumnName: LoadStatus
+  operationType: SQL_PROC_INSERT
+  procedureName: stage.usp_stage_load_customers
+  joinDetails: ''
+  filterConditions: >-
+    NOT EXISTS (SELECT 1
+                FROM   stage.Customers_stg AS s
+                WHERE  s.SourceCustomerID = c.CustomerID)
+- id: c6b9fa93-bcf9-4fd7-b45f-82204a04b8bc
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Customers
+  sourceComponentId: Package\Customers_sql::source.Customers
+  sourceComponentName: source.Customers
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: source
+  sourceTable: Customers
+  sourceColumnName: CustomerCode
+  sourceExpression: LEFT(LTRIM(RTRIM(c.CustomerCode)), 20)
+  targetComponentId: Package\Customers_sql
+  targetComponentName: stage.Customers_stg
+  targetServer: .\SQLSERVER2025
+  targetDatabase: Staging
+  targetSchema: stage
+  targetTable: Customers_stg
+  targetColumnName: CustomerCode
+  operationType: SQL_PROC_UPDATE
+  procedureName: stage.usp_stage_load_customers
+  joinDetails: 'Inner: s.SourceCustomerID = c.CustomerID'
+  filterConditions: ''
+- id: e6a4dea1-fc92-4d1d-97da-c25b87d55217
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Customers
+  sourceComponentId: Package\Customers_sql::source.Customers
+  sourceComponentName: source.Customers
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: source
+  sourceTable: Customers
+  sourceColumnName: FirstName
+  sourceExpression: LEFT(LTRIM(RTRIM(c.FirstName)), 50)
+  targetComponentId: Package\Customers_sql
+  targetComponentName: stage.Customers_stg
+  targetServer: .\SQLSERVER2025
+  targetDatabase: Staging
+  targetSchema: stage
+  targetTable: Customers_stg
+  targetColumnName: FirstName
+  operationType: SQL_PROC_UPDATE
+  procedureName: stage.usp_stage_load_customers
+  joinDetails: 'Inner: s.SourceCustomerID = c.CustomerID'
+  filterConditions: ''
+- id: d555bccb-39e8-464c-ad76-2434370739ca
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Customers
+  sourceComponentId: Package\Customers_sql::source.Customers
+  sourceComponentName: source.Customers
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: source
+  sourceTable: Customers
+  sourceColumnName: LastName
+  sourceExpression: LEFT(LTRIM(RTRIM(c.LastName)), 50)
+  targetComponentId: Package\Customers_sql
+  targetComponentName: stage.Customers_stg
+  targetServer: .\SQLSERVER2025
+  targetDatabase: Staging
+  targetSchema: stage
+  targetTable: Customers_stg
+  targetColumnName: LastName
+  operationType: SQL_PROC_UPDATE
+  procedureName: stage.usp_stage_load_customers
+  joinDetails: 'Inner: s.SourceCustomerID = c.CustomerID'
+  filterConditions: ''
+- id: e0c5f134-4b06-4373-a9ab-468085c34787
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Customers
+  sourceComponentId: Package\Customers_sql::source.Customers
+  sourceComponentName: source.Customers
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: source
+  sourceTable: Customers
+  sourceColumnName: Email
+  sourceExpression: CASE WHEN TRY_CONVERT (NVARCHAR (255), c.Email) IS NULL THEN NULL ELSE LEFT(c.Email, 255) END
+  targetComponentId: Package\Customers_sql
+  targetComponentName: stage.Customers_stg
+  targetServer: .\SQLSERVER2025
+  targetDatabase: Staging
+  targetSchema: stage
+  targetTable: Customers_stg
+  targetColumnName: Email
+  operationType: SQL_PROC_UPDATE
+  procedureName: stage.usp_stage_load_customers
+  joinDetails: 'Inner: s.SourceCustomerID = c.CustomerID'
+  filterConditions: ''
+- id: 7a69d723-587b-47c1-93c8-ce834e0a6fca
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Customers
+  sourceComponentId: Package\Customers_sql::source.Customers
+  sourceComponentName: source.Customers
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: source
+  sourceTable: Customers
+  sourceColumnName: Phone
+  sourceExpression: LEFT(ISNULL(c.Phone, N''), 30)
+  targetComponentId: Package\Customers_sql
+  targetComponentName: stage.Customers_stg
+  targetServer: .\SQLSERVER2025
+  targetDatabase: Staging
+  targetSchema: stage
+  targetTable: Customers_stg
+  targetColumnName: Phone
+  operationType: SQL_PROC_UPDATE
+  procedureName: stage.usp_stage_load_customers
+  joinDetails: 'Inner: s.SourceCustomerID = c.CustomerID'
+  filterConditions: ''
+- id: 4c06612f-0ef6-43a1-bf9c-6fbd88aeb2d3
+  packageId: '{6CE5C704-B864-4E9D-A608-1ACE53E51E03}'
+  taskId: Package\Load Dim Customers
+  sourceComponentId: Package\Load Dim Customers\OLE DB Source::stage.Customers_stg
+  sourceComponentName: stage.Customers_stg
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: ''
+  sourceSchema: stage
+  sourceTable: Customers_stg
+  sourceColumnName: SourceCustomerID
+  sourceExpression: SourceCustomerID
+  targetComponentId: Package\Load Dim Customers\OLE DB Source
+  targetComponentName: OLE DB Source
+  targetServer: .\SQLSERVER2025
+  targetDatabase: ''
+  targetSchema: ''
+  targetTable: ''
+  targetColumnName: SourceCustomerID
+  operationType: SQL_PROC_SELECT
+  procedureName: stage.usp_Get_LoadCustomers
+  joinDetails: ''
+  filterConditions: ''
+- id: 1e21be9d-41e8-4380-8aba-64441a3a3cff
+  packageId: '{6CE5C704-B864-4E9D-A608-1ACE53E51E03}'
+  taskId: Package\Load Dim Customers
+  sourceComponentId: Package\Load Dim Customers\OLE DB Source::stage.Customers_stg
+  sourceComponentName: stage.Customers_stg
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: ''
+  sourceSchema: stage
+  sourceTable: Customers_stg
+  sourceColumnName: CustomerCode
+  sourceExpression: CustomerCode
+  targetComponentId: Package\Load Dim Customers\OLE DB Source
+  targetComponentName: OLE DB Source
+  targetServer: .\SQLSERVER2025
+  targetDatabase: ''
+  targetSchema: ''
+  targetTable: ''
+  targetColumnName: CustomerCode
+  operationType: SQL_PROC_SELECT
+  procedureName: stage.usp_Get_LoadCustomers
+  joinDetails: ''
+  filterConditions: ''
+- id: c9b6f94e-c41c-4464-bd97-06005b7f9a28
+  packageId: '{6CE5C704-B864-4E9D-A608-1ACE53E51E03}'
+  taskId: Package\Load Dim Customers
+  sourceComponentId: Package\Load Dim Customers\OLE DB Source::stage.Customers_stg
+  sourceComponentName: stage.Customers_stg
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: ''
+  sourceSchema: stage
+  sourceTable: Customers_stg
+  sourceColumnName: FirstName
+  sourceExpression: FirstName
+  targetComponentId: Package\Load Dim Customers\OLE DB Source
+  targetComponentName: OLE DB Source
+  targetServer: .\SQLSERVER2025
+  targetDatabase: ''
+  targetSchema: ''
+  targetTable: ''
+  targetColumnName: FirstName
+  operationType: SQL_PROC_SELECT
+  procedureName: stage.usp_Get_LoadCustomers
+  joinDetails: ''
+  filterConditions: ''
+- id: 300f74b5-4500-4601-8ead-6d2ecc65adb0
+  packageId: '{6CE5C704-B864-4E9D-A608-1ACE53E51E03}'
+  taskId: Package\Load Dim Customers
+  sourceComponentId: Package\Load Dim Customers\OLE DB Source::stage.Customers_stg
+  sourceComponentName: stage.Customers_stg
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: ''
+  sourceSchema: stage
+  sourceTable: Customers_stg
+  sourceColumnName: LastName
+  sourceExpression: LastName
+  targetComponentId: Package\Load Dim Customers\OLE DB Source
+  targetComponentName: OLE DB Source
+  targetServer: .\SQLSERVER2025
+  targetDatabase: ''
+  targetSchema: ''
+  targetTable: ''
+  targetColumnName: LastName
+  operationType: SQL_PROC_SELECT
+  procedureName: stage.usp_Get_LoadCustomers
+  joinDetails: ''
+  filterConditions: ''
+- id: 876045f5-9398-4a9c-8c0c-7f12453e1bb6
+  packageId: '{6CE5C704-B864-4E9D-A608-1ACE53E51E03}'
+  taskId: Package\Load Dim Customers
+  sourceComponentId: Package\Load Dim Customers\OLE DB Source::stage.Customers_stg
+  sourceComponentName: stage.Customers_stg
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: ''
+  sourceSchema: stage
+  sourceTable: Customers_stg
+  sourceColumnName: Email
+  sourceExpression: Email
+  targetComponentId: Package\Load Dim Customers\OLE DB Source
+  targetComponentName: OLE DB Source
+  targetServer: .\SQLSERVER2025
+  targetDatabase: ''
+  targetSchema: ''
+  targetTable: ''
+  targetColumnName: Email
+  operationType: SQL_PROC_SELECT
+  procedureName: stage.usp_Get_LoadCustomers
+  joinDetails: ''
+  filterConditions: ''
+- id: d447089f-0457-46f1-91e2-d41a65408ca7
+  packageId: '{6CE5C704-B864-4E9D-A608-1ACE53E51E03}'
+  taskId: Package\Load Dim Customers
+  sourceComponentId: Package\Load Dim Customers\OLE DB Source::stage.Customers_stg
+  sourceComponentName: stage.Customers_stg
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: ''
+  sourceSchema: stage
+  sourceTable: Customers_stg
+  sourceColumnName: Phone
+  sourceExpression: Phone
+  targetComponentId: Package\Load Dim Customers\OLE DB Source
+  targetComponentName: OLE DB Source
+  targetServer: .\SQLSERVER2025
+  targetDatabase: ''
+  targetSchema: ''
+  targetTable: ''
+  targetColumnName: Phone
+  operationType: SQL_PROC_SELECT
+  procedureName: stage.usp_Get_LoadCustomers
+  joinDetails: ''
+  filterConditions: ''
+- id: 1fc25710-cb4b-4c35-973e-115a805e3e18
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Order Items
+  sourceComponentId: Package\Order Items_sql::stage.usp_stage_load_orderitems
+  sourceComponentName: usp_stage_load_orderitems
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: stage
+  sourceTable: usp_stage_load_orderitems
+  sourceColumnName: ''
+  sourceExpression: '@BatchID'
+  targetComponentId: Package\Order Items_sql
+  targetComponentName: stage.OrderItems_stg
+  targetServer: .\SQLSERVER2025
+  targetDatabase: Staging
+  targetSchema: stage
+  targetTable: OrderItems_stg
+  targetColumnName: LoadBatchID
+  operationType: SQL_PROC_INSERT
+  procedureName: stage.usp_stage_load_orderitems
+  joinDetails: 'LeftOuter: o.OrderID = oi.OrderID'
+  filterConditions: >-
+    NOT EXISTS (SELECT 1
+                FROM   stage.OrderItems_stg AS s
+                WHERE  s.SourceOrderItemID = oi.OrderItemID)
+- id: 12e559e1-b4ff-4c20-a1a5-f953626b15f9
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Order Items
+  sourceComponentId: Package\Order Items_sql::stage.usp_stage_load_orderitems
+  sourceComponentName: usp_stage_load_orderitems
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: stage
+  sourceTable: usp_stage_load_orderitems
+  sourceColumnName: ''
+  sourceExpression: SYSUTCDATETIME()
+  targetComponentId: Package\Order Items_sql
+  targetComponentName: stage.OrderItems_stg
+  targetServer: .\SQLSERVER2025
+  targetDatabase: Staging
+  targetSchema: stage
+  targetTable: OrderItems_stg
+  targetColumnName: LoadDate
+  operationType: SQL_PROC_INSERT
+  procedureName: stage.usp_stage_load_orderitems
+  joinDetails: 'LeftOuter: o.OrderID = oi.OrderID'
+  filterConditions: >-
+    NOT EXISTS (SELECT 1
+                FROM   stage.OrderItems_stg AS s
+                WHERE  s.SourceOrderItemID = oi.OrderItemID)
+- id: a9953bdc-3325-4665-a0b5-3cd3b75c25ae
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Order Items
+  sourceComponentId: Package\Order Items_sql::source.OrderItems
+  sourceComponentName: source.OrderItems
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: source
+  sourceTable: OrderItems
+  sourceColumnName: OrderItemID
+  sourceExpression: oi.OrderItemID
+  targetComponentId: Package\Order Items_sql
+  targetComponentName: stage.OrderItems_stg
+  targetServer: .\SQLSERVER2025
+  targetDatabase: Staging
+  targetSchema: stage
+  targetTable: OrderItems_stg
+  targetColumnName: SourceOrderItemID
+  operationType: SQL_PROC_INSERT
+  procedureName: stage.usp_stage_load_orderitems
+  joinDetails: 'LeftOuter: o.OrderID = oi.OrderID'
+  filterConditions: >-
+    NOT EXISTS (SELECT 1
+                FROM   stage.OrderItems_stg AS s
+                WHERE  s.SourceOrderItemID = oi.OrderItemID)
+- id: 3e135770-c506-4d79-873f-47a4a42f3ef0
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Order Items
+  sourceComponentId: Package\Order Items_sql::source.Orders
+  sourceComponentName: source.Orders
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: source
+  sourceTable: Orders
+  sourceColumnName: OrderID
+  sourceExpression: COALESCE (o.OrderID, oi.OrderID)
+  targetComponentId: Package\Order Items_sql
+  targetComponentName: stage.OrderItems_stg
+  targetServer: .\SQLSERVER2025
+  targetDatabase: Staging
+  targetSchema: stage
+  targetTable: OrderItems_stg
+  targetColumnName: SourceOrderID
+  operationType: SQL_PROC_INSERT
+  procedureName: stage.usp_stage_load_orderitems
+  joinDetails: 'LeftOuter: o.OrderID = oi.OrderID'
+  filterConditions: >-
+    NOT EXISTS (SELECT 1
+                FROM   stage.OrderItems_stg AS s
+                WHERE  s.SourceOrderItemID = oi.OrderItemID)
+- id: 1925737c-03af-4a45-871f-9f37b5d7517e
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Order Items
+  sourceComponentId: Package\Order Items_sql::source.OrderItems
+  sourceComponentName: source.OrderItems
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: source
+  sourceTable: OrderItems
+  sourceColumnName: OrderID
+  sourceExpression: COALESCE (o.OrderID, oi.OrderID)
+  targetComponentId: Package\Order Items_sql
+  targetComponentName: stage.OrderItems_stg
+  targetServer: .\SQLSERVER2025
+  targetDatabase: Staging
+  targetSchema: stage
+  targetTable: OrderItems_stg
+  targetColumnName: SourceOrderID
+  operationType: SQL_PROC_INSERT
+  procedureName: stage.usp_stage_load_orderitems
+  joinDetails: 'LeftOuter: o.OrderID = oi.OrderID'
+  filterConditions: >-
+    NOT EXISTS (SELECT 1
+                FROM   stage.OrderItems_stg AS s
+                WHERE  s.SourceOrderItemID = oi.OrderItemID)
+- id: bc966224-8250-47da-bc4a-dd270c93657a
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Order Items
+  sourceComponentId: Package\Order Items_sql::source.OrderItems
+  sourceComponentName: source.OrderItems
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: source
+  sourceTable: OrderItems
+  sourceColumnName: ProductCode
+  sourceExpression: LEFT(oi.ProductCode, 50)
+  targetComponentId: Package\Order Items_sql
+  targetComponentName: stage.OrderItems_stg
+  targetServer: .\SQLSERVER2025
+  targetDatabase: Staging
+  targetSchema: stage
+  targetTable: OrderItems_stg
+  targetColumnName: ProductCode
+  operationType: SQL_PROC_INSERT
+  procedureName: stage.usp_stage_load_orderitems
+  joinDetails: 'LeftOuter: o.OrderID = oi.OrderID'
+  filterConditions: >-
+    NOT EXISTS (SELECT 1
+                FROM   stage.OrderItems_stg AS s
+                WHERE  s.SourceOrderItemID = oi.OrderItemID)
+- id: c4a7c273-d4d8-4cee-b3d3-619384615564
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Order Items
+  sourceComponentId: Package\Order Items_sql::source.OrderItems
+  sourceComponentName: source.OrderItems
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: source
+  sourceTable: OrderItems
+  sourceColumnName: Quantity
+  sourceExpression: oi.Quantity
+  targetComponentId: Package\Order Items_sql
+  targetComponentName: stage.OrderItems_stg
+  targetServer: .\SQLSERVER2025
+  targetDatabase: Staging
+  targetSchema: stage
+  targetTable: OrderItems_stg
+  targetColumnName: Quantity
+  operationType: SQL_PROC_INSERT
+  procedureName: stage.usp_stage_load_orderitems
+  joinDetails: 'LeftOuter: o.OrderID = oi.OrderID'
+  filterConditions: >-
+    NOT EXISTS (SELECT 1
+                FROM   stage.OrderItems_stg AS s
+                WHERE  s.SourceOrderItemID = oi.OrderItemID)
+- id: 514af487-fb14-46ba-b642-1f7007c49351
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Order Items
+  sourceComponentId: Package\Order Items_sql::source.OrderItems
+  sourceComponentName: source.OrderItems
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: source
+  sourceTable: OrderItems
+  sourceColumnName: UnitPrice
+  sourceExpression: oi.UnitPrice
+  targetComponentId: Package\Order Items_sql
+  targetComponentName: stage.OrderItems_stg
+  targetServer: .\SQLSERVER2025
+  targetDatabase: Staging
+  targetSchema: stage
+  targetTable: OrderItems_stg
+  targetColumnName: UnitPrice
+  operationType: SQL_PROC_INSERT
+  procedureName: stage.usp_stage_load_orderitems
+  joinDetails: 'LeftOuter: o.OrderID = oi.OrderID'
+  filterConditions: >-
+    NOT EXISTS (SELECT 1
+                FROM   stage.OrderItems_stg AS s
+                WHERE  s.SourceOrderItemID = oi.OrderItemID)
+- id: a3d7aebf-99b3-41f5-a866-60849154e587
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Order Items
+  sourceComponentId: Package\Order Items_sql::source.OrderItems
+  sourceComponentName: source.OrderItems
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: source
+  sourceTable: OrderItems
+  sourceColumnName: LineTotal
+  sourceExpression: oi.LineTotal
+  targetComponentId: Package\Order Items_sql
+  targetComponentName: stage.OrderItems_stg
+  targetServer: .\SQLSERVER2025
+  targetDatabase: Staging
+  targetSchema: stage
+  targetTable: OrderItems_stg
+  targetColumnName: LineTotal
+  operationType: SQL_PROC_INSERT
+  procedureName: stage.usp_stage_load_orderitems
+  joinDetails: 'LeftOuter: o.OrderID = oi.OrderID'
+  filterConditions: >-
+    NOT EXISTS (SELECT 1
+                FROM   stage.OrderItems_stg AS s
+                WHERE  s.SourceOrderItemID = oi.OrderItemID)
+- id: 97a5c17c-fa03-4ec8-b7a7-c81ff9cfede0
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Order Items
+  sourceComponentId: Package\Order Items_sql::source.Orders
+  sourceComponentName: source.Orders
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: source
+  sourceTable: Orders
+  sourceColumnName: OrderID
+  sourceExpression: CASE WHEN o.OrderID IS NULL THEN N'Error' ELSE N'Loaded' END
+  targetComponentId: Package\Order Items_sql
+  targetComponentName: stage.OrderItems_stg
+  targetServer: .\SQLSERVER2025
+  targetDatabase: Staging
+  targetSchema: stage
+  targetTable: OrderItems_stg
+  targetColumnName: LoadStatus
+  operationType: SQL_PROC_INSERT
+  procedureName: stage.usp_stage_load_orderitems
+  joinDetails: 'LeftOuter: o.OrderID = oi.OrderID'
+  filterConditions: >-
+    NOT EXISTS (SELECT 1
+                FROM   stage.OrderItems_stg AS s
+                WHERE  s.SourceOrderItemID = oi.OrderItemID)
+- id: 6ff8c1e6-9563-42d5-b5fe-65a8b7b577b5
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Order Items
+  sourceComponentId: Package\Order Items_sql::source.Orders
+  sourceComponentName: source.Orders
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: source
+  sourceTable: Orders
+  sourceColumnName: OrderID
+  sourceExpression: CASE WHEN o.OrderID IS NULL THEN N'FK Order not found in source.Orders' ELSE NULL END
+  targetComponentId: Package\Order Items_sql
+  targetComponentName: stage.OrderItems_stg
+  targetServer: .\SQLSERVER2025
+  targetDatabase: Staging
+  targetSchema: stage
+  targetTable: OrderItems_stg
+  targetColumnName: ErrorMessage
+  operationType: SQL_PROC_INSERT
+  procedureName: stage.usp_stage_load_orderitems
+  joinDetails: 'LeftOuter: o.OrderID = oi.OrderID'
+  filterConditions: >-
+    NOT EXISTS (SELECT 1
+                FROM   stage.OrderItems_stg AS s
+                WHERE  s.SourceOrderItemID = oi.OrderItemID)
+- id: 37fb2139-f896-4963-ac99-9762dde9afcf
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Order Items
+  sourceComponentId: Package\Order Items_sql::source.Orders
+  sourceComponentName: source.Orders
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: source
+  sourceTable: Orders
+  sourceColumnName: OrderID
+  sourceExpression: COALESCE (o.OrderID, oi.OrderID)
+  targetComponentId: Package\Order Items_sql
+  targetComponentName: stage.OrderItems_stg
+  targetServer: .\SQLSERVER2025
+  targetDatabase: Staging
+  targetSchema: stage
+  targetTable: OrderItems_stg
+  targetColumnName: SourceOrderID
+  operationType: SQL_PROC_UPDATE
+  procedureName: stage.usp_stage_load_orderitems
+  joinDetails: 'LeftOuter: o.OrderID = oi.OrderID; Inner: s.SourceOrderItemID = oi.OrderItemID'
+  filterConditions: ''
+- id: c5ca1429-c876-416f-a43e-311cfb60e7e6
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Order Items
+  sourceComponentId: Package\Order Items_sql::source.OrderItems
+  sourceComponentName: source.OrderItems
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: source
+  sourceTable: OrderItems
+  sourceColumnName: OrderID
+  sourceExpression: COALESCE (o.OrderID, oi.OrderID)
+  targetComponentId: Package\Order Items_sql
+  targetComponentName: stage.OrderItems_stg
+  targetServer: .\SQLSERVER2025
+  targetDatabase: Staging
+  targetSchema: stage
+  targetTable: OrderItems_stg
+  targetColumnName: SourceOrderID
+  operationType: SQL_PROC_UPDATE
+  procedureName: stage.usp_stage_load_orderitems
+  joinDetails: 'LeftOuter: o.OrderID = oi.OrderID; Inner: s.SourceOrderItemID = oi.OrderItemID'
+  filterConditions: ''
+- id: 5c1e3c1f-f12c-4f9d-9447-f00f25764e22
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Order Items
+  sourceComponentId: Package\Order Items_sql::source.OrderItems
+  sourceComponentName: source.OrderItems
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: source
+  sourceTable: OrderItems
+  sourceColumnName: ProductCode
+  sourceExpression: LEFT(oi.ProductCode, 50)
+  targetComponentId: Package\Order Items_sql
+  targetComponentName: stage.OrderItems_stg
+  targetServer: .\SQLSERVER2025
+  targetDatabase: Staging
+  targetSchema: stage
+  targetTable: OrderItems_stg
+  targetColumnName: ProductCode
+  operationType: SQL_PROC_UPDATE
+  procedureName: stage.usp_stage_load_orderitems
+  joinDetails: 'LeftOuter: o.OrderID = oi.OrderID; Inner: s.SourceOrderItemID = oi.OrderItemID'
+  filterConditions: ''
+- id: c724944a-16f5-4f94-8ba8-486b9468d886
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Order Items
+  sourceComponentId: Package\Order Items_sql::source.OrderItems
+  sourceComponentName: source.OrderItems
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: source
+  sourceTable: OrderItems
+  sourceColumnName: Quantity
+  sourceExpression: oi.Quantity
+  targetComponentId: Package\Order Items_sql
+  targetComponentName: stage.OrderItems_stg
+  targetServer: .\SQLSERVER2025
+  targetDatabase: Staging
+  targetSchema: stage
+  targetTable: OrderItems_stg
+  targetColumnName: Quantity
+  operationType: SQL_PROC_UPDATE
+  procedureName: stage.usp_stage_load_orderitems
+  joinDetails: 'LeftOuter: o.OrderID = oi.OrderID; Inner: s.SourceOrderItemID = oi.OrderItemID'
+  filterConditions: ''
+- id: 899ded13-2fbf-4ad7-ac0f-73cef51cc1e6
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Order Items
+  sourceComponentId: Package\Order Items_sql::source.OrderItems
+  sourceComponentName: source.OrderItems
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: source
+  sourceTable: OrderItems
+  sourceColumnName: UnitPrice
+  sourceExpression: oi.UnitPrice
+  targetComponentId: Package\Order Items_sql
+  targetComponentName: stage.OrderItems_stg
+  targetServer: .\SQLSERVER2025
+  targetDatabase: Staging
+  targetSchema: stage
+  targetTable: OrderItems_stg
+  targetColumnName: UnitPrice
+  operationType: SQL_PROC_UPDATE
+  procedureName: stage.usp_stage_load_orderitems
+  joinDetails: 'LeftOuter: o.OrderID = oi.OrderID; Inner: s.SourceOrderItemID = oi.OrderItemID'
+  filterConditions: ''
+- id: 65dd1c46-98b8-4afa-8f80-07f6877a1dcc
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Order Items
+  sourceComponentId: Package\Order Items_sql::source.OrderItems
+  sourceComponentName: source.OrderItems
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: source
+  sourceTable: OrderItems
+  sourceColumnName: LineTotal
+  sourceExpression: oi.LineTotal
+  targetComponentId: Package\Order Items_sql
+  targetComponentName: stage.OrderItems_stg
+  targetServer: .\SQLSERVER2025
+  targetDatabase: Staging
+  targetSchema: stage
+  targetTable: OrderItems_stg
+  targetColumnName: LineTotal
+  operationType: SQL_PROC_UPDATE
+  procedureName: stage.usp_stage_load_orderitems
+  joinDetails: 'LeftOuter: o.OrderID = oi.OrderID; Inner: s.SourceOrderItemID = oi.OrderItemID'
+  filterConditions: ''
+- id: 10b02262-024a-4016-a019-173ee9376623
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Order Items
+  sourceComponentId: Package\Order Items_sql::source.Orders
+  sourceComponentName: source.Orders
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: source
+  sourceTable: Orders
+  sourceColumnName: OrderID
+  sourceExpression: CASE WHEN o.OrderID IS NULL THEN N'Error' ELSE N'Reloaded' END
+  targetComponentId: Package\Order Items_sql
+  targetComponentName: stage.OrderItems_stg
+  targetServer: .\SQLSERVER2025
+  targetDatabase: Staging
+  targetSchema: stage
+  targetTable: OrderItems_stg
+  targetColumnName: LoadStatus
+  operationType: SQL_PROC_UPDATE
+  procedureName: stage.usp_stage_load_orderitems
+  joinDetails: 'LeftOuter: o.OrderID = oi.OrderID; Inner: s.SourceOrderItemID = oi.OrderItemID'
+  filterConditions: ''
+- id: d3330526-083d-425c-adfc-eaaf67e2c603
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Order Items
+  sourceComponentId: Package\Order Items_sql::source.Orders
+  sourceComponentName: source.Orders
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: source
+  sourceTable: Orders
+  sourceColumnName: OrderID
+  sourceExpression: CASE WHEN o.OrderID IS NULL THEN N'FK Order not found in source.Orders' ELSE NULL END
+  targetComponentId: Package\Order Items_sql
+  targetComponentName: stage.OrderItems_stg
+  targetServer: .\SQLSERVER2025
+  targetDatabase: Staging
+  targetSchema: stage
+  targetTable: OrderItems_stg
+  targetColumnName: ErrorMessage
+  operationType: SQL_PROC_UPDATE
+  procedureName: stage.usp_stage_load_orderitems
+  joinDetails: 'LeftOuter: o.OrderID = oi.OrderID; Inner: s.SourceOrderItemID = oi.OrderItemID'
+  filterConditions: ''
+- id: d75ac4f8-2156-48e7-ac9f-52150b403c29
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Orders
+  sourceComponentId: Package\Orders_sql::stage.usp_stage_load_orders
+  sourceComponentName: usp_stage_load_orders
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: stage
+  sourceTable: usp_stage_load_orders
+  sourceColumnName: ''
+  sourceExpression: '@BatchID'
+  targetComponentId: Package\Orders_sql
+  targetComponentName: stage.Orders_stg
+  targetServer: .\SQLSERVER2025
+  targetDatabase: Staging
+  targetSchema: stage
+  targetTable: Orders_stg
+  targetColumnName: LoadBatchID
+  operationType: SQL_PROC_INSERT
+  procedureName: stage.usp_stage_load_orders
+  joinDetails: 'LeftOuter: c.CustomerID = o.CustomerID'
+  filterConditions: >-
+    NOT EXISTS (SELECT 1
+                FROM   stage.Orders_stg AS s
+                WHERE  s.SourceOrderID = o.OrderID)
+- id: 1c1ddaff-5a38-4128-b5eb-a7e588288ae1
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Orders
+  sourceComponentId: Package\Orders_sql::stage.usp_stage_load_orders
+  sourceComponentName: usp_stage_load_orders
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: stage
+  sourceTable: usp_stage_load_orders
+  sourceColumnName: ''
+  sourceExpression: SYSUTCDATETIME()
+  targetComponentId: Package\Orders_sql
+  targetComponentName: stage.Orders_stg
+  targetServer: .\SQLSERVER2025
+  targetDatabase: Staging
+  targetSchema: stage
+  targetTable: Orders_stg
+  targetColumnName: LoadDate
+  operationType: SQL_PROC_INSERT
+  procedureName: stage.usp_stage_load_orders
+  joinDetails: 'LeftOuter: c.CustomerID = o.CustomerID'
+  filterConditions: >-
+    NOT EXISTS (SELECT 1
+                FROM   stage.Orders_stg AS s
+                WHERE  s.SourceOrderID = o.OrderID)
+- id: 6beafaad-8751-4949-9565-f47cbdd48531
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Orders
+  sourceComponentId: Package\Orders_sql::source.Orders
+  sourceComponentName: source.Orders
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: source
+  sourceTable: Orders
+  sourceColumnName: OrderID
+  sourceExpression: o.OrderID
+  targetComponentId: Package\Orders_sql
+  targetComponentName: stage.Orders_stg
+  targetServer: .\SQLSERVER2025
+  targetDatabase: Staging
+  targetSchema: stage
+  targetTable: Orders_stg
+  targetColumnName: SourceOrderID
+  operationType: SQL_PROC_INSERT
+  procedureName: stage.usp_stage_load_orders
+  joinDetails: 'LeftOuter: c.CustomerID = o.CustomerID'
+  filterConditions: >-
+    NOT EXISTS (SELECT 1
+                FROM   stage.Orders_stg AS s
+                WHERE  s.SourceOrderID = o.OrderID)
+- id: 577894c5-7114-4ce1-809a-b08585c36cb3
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Orders
+  sourceComponentId: Package\Orders_sql::source.Orders
+  sourceComponentName: source.Orders
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: source
+  sourceTable: Orders
+  sourceColumnName: CustomerID
+  sourceExpression: o.CustomerID
+  targetComponentId: Package\Orders_sql
+  targetComponentName: stage.Orders_stg
+  targetServer: .\SQLSERVER2025
+  targetDatabase: Staging
+  targetSchema: stage
+  targetTable: Orders_stg
+  targetColumnName: SourceCustomerID
+  operationType: SQL_PROC_INSERT
+  procedureName: stage.usp_stage_load_orders
+  joinDetails: 'LeftOuter: c.CustomerID = o.CustomerID'
+  filterConditions: >-
+    NOT EXISTS (SELECT 1
+                FROM   stage.Orders_stg AS s
+                WHERE  s.SourceOrderID = o.OrderID)
+- id: a98c5b3b-32e2-477d-b2d7-ffd670b85572
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Orders
+  sourceComponentId: Package\Orders_sql::source.Orders
+  sourceComponentName: source.Orders
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: source
+  sourceTable: Orders
+  sourceColumnName: OrderDate
+  sourceExpression: o.OrderDate
+  targetComponentId: Package\Orders_sql
+  targetComponentName: stage.Orders_stg
+  targetServer: .\SQLSERVER2025
+  targetDatabase: Staging
+  targetSchema: stage
+  targetTable: Orders_stg
+  targetColumnName: OrderDate
+  operationType: SQL_PROC_INSERT
+  procedureName: stage.usp_stage_load_orders
+  joinDetails: 'LeftOuter: c.CustomerID = o.CustomerID'
+  filterConditions: >-
+    NOT EXISTS (SELECT 1
+                FROM   stage.Orders_stg AS s
+                WHERE  s.SourceOrderID = o.OrderID)
+- id: 5aa58972-08bb-4b99-9085-62e0cb29b87c
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Orders
+  sourceComponentId: Package\Orders_sql::source.Orders
+  sourceComponentName: source.Orders
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: source
+  sourceTable: Orders
+  sourceColumnName: TotalAmount
+  sourceExpression: o.TotalAmount
+  targetComponentId: Package\Orders_sql
+  targetComponentName: stage.Orders_stg
+  targetServer: .\SQLSERVER2025
+  targetDatabase: Staging
+  targetSchema: stage
+  targetTable: Orders_stg
+  targetColumnName: TotalAmount
+  operationType: SQL_PROC_INSERT
+  procedureName: stage.usp_stage_load_orders
+  joinDetails: 'LeftOuter: c.CustomerID = o.CustomerID'
+  filterConditions: >-
+    NOT EXISTS (SELECT 1
+                FROM   stage.Orders_stg AS s
+                WHERE  s.SourceOrderID = o.OrderID)
+- id: 1076467f-acc8-4000-b25a-b283592ee13e
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Orders
+  sourceComponentId: Package\Orders_sql::source.Orders
+  sourceComponentName: source.Orders
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: source
+  sourceTable: Orders
+  sourceColumnName: Status
+  sourceExpression: LEFT(o.Status, 20)
+  targetComponentId: Package\Orders_sql
+  targetComponentName: stage.Orders_stg
+  targetServer: .\SQLSERVER2025
+  targetDatabase: Staging
+  targetSchema: stage
+  targetTable: Orders_stg
+  targetColumnName: Status
+  operationType: SQL_PROC_INSERT
+  procedureName: stage.usp_stage_load_orders
+  joinDetails: 'LeftOuter: c.CustomerID = o.CustomerID'
+  filterConditions: >-
+    NOT EXISTS (SELECT 1
+                FROM   stage.Orders_stg AS s
+                WHERE  s.SourceOrderID = o.OrderID)
+- id: fa3c7822-cfcc-4c6f-9b87-2434a26042c5
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Orders
+  sourceComponentId: Package\Orders_sql::source.Customers
+  sourceComponentName: source.Customers
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: source
+  sourceTable: Customers
+  sourceColumnName: CustomerID
+  sourceExpression: CASE WHEN c.CustomerID IS NULL THEN N'Error' ELSE N'Loaded' END
+  targetComponentId: Package\Orders_sql
+  targetComponentName: stage.Orders_stg
+  targetServer: .\SQLSERVER2025
+  targetDatabase: Staging
+  targetSchema: stage
+  targetTable: Orders_stg
+  targetColumnName: LoadStatus
+  operationType: SQL_PROC_INSERT
+  procedureName: stage.usp_stage_load_orders
+  joinDetails: 'LeftOuter: c.CustomerID = o.CustomerID'
+  filterConditions: >-
+    NOT EXISTS (SELECT 1
+                FROM   stage.Orders_stg AS s
+                WHERE  s.SourceOrderID = o.OrderID)
+- id: 0e266600-4218-4c7d-bd45-63c75f324c96
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Orders
+  sourceComponentId: Package\Orders_sql::source.Customers
+  sourceComponentName: source.Customers
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: source
+  sourceTable: Customers
+  sourceColumnName: CustomerID
+  sourceExpression: CASE WHEN c.CustomerID IS NULL THEN N'FK Customer not found in source.Customers' ELSE NULL END
+  targetComponentId: Package\Orders_sql
+  targetComponentName: stage.Orders_stg
+  targetServer: .\SQLSERVER2025
+  targetDatabase: Staging
+  targetSchema: stage
+  targetTable: Orders_stg
+  targetColumnName: ErrorMessage
+  operationType: SQL_PROC_INSERT
+  procedureName: stage.usp_stage_load_orders
+  joinDetails: 'LeftOuter: c.CustomerID = o.CustomerID'
+  filterConditions: >-
+    NOT EXISTS (SELECT 1
+                FROM   stage.Orders_stg AS s
+                WHERE  s.SourceOrderID = o.OrderID)
+- id: 0ac322db-b0aa-4c51-83f5-f6bf81fb2fa8
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Orders
+  sourceComponentId: Package\Orders_sql::source.Orders
+  sourceComponentName: source.Orders
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: source
+  sourceTable: Orders
+  sourceColumnName: CustomerID
+  sourceExpression: o.CustomerID
+  targetComponentId: Package\Orders_sql
+  targetComponentName: stage.Orders_stg
+  targetServer: .\SQLSERVER2025
+  targetDatabase: Staging
+  targetSchema: stage
+  targetTable: Orders_stg
+  targetColumnName: SourceCustomerID
+  operationType: SQL_PROC_UPDATE
+  procedureName: stage.usp_stage_load_orders
+  joinDetails: 'LeftOuter: c.CustomerID = o.CustomerID; Inner: s.SourceOrderID = o.OrderID'
+  filterConditions: ''
+- id: 88f4bd2f-373c-4ab4-8392-ac6d74b4ad0e
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Orders
+  sourceComponentId: Package\Orders_sql::source.Orders
+  sourceComponentName: source.Orders
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: source
+  sourceTable: Orders
+  sourceColumnName: OrderDate
+  sourceExpression: o.OrderDate
+  targetComponentId: Package\Orders_sql
+  targetComponentName: stage.Orders_stg
+  targetServer: .\SQLSERVER2025
+  targetDatabase: Staging
+  targetSchema: stage
+  targetTable: Orders_stg
+  targetColumnName: OrderDate
+  operationType: SQL_PROC_UPDATE
+  procedureName: stage.usp_stage_load_orders
+  joinDetails: 'LeftOuter: c.CustomerID = o.CustomerID; Inner: s.SourceOrderID = o.OrderID'
+  filterConditions: ''
+- id: 44782921-a998-4df4-97e9-87b8f391030b
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Orders
+  sourceComponentId: Package\Orders_sql::source.Orders
+  sourceComponentName: source.Orders
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: source
+  sourceTable: Orders
+  sourceColumnName: TotalAmount
+  sourceExpression: o.TotalAmount
+  targetComponentId: Package\Orders_sql
+  targetComponentName: stage.Orders_stg
+  targetServer: .\SQLSERVER2025
+  targetDatabase: Staging
+  targetSchema: stage
+  targetTable: Orders_stg
+  targetColumnName: TotalAmount
+  operationType: SQL_PROC_UPDATE
+  procedureName: stage.usp_stage_load_orders
+  joinDetails: 'LeftOuter: c.CustomerID = o.CustomerID; Inner: s.SourceOrderID = o.OrderID'
+  filterConditions: ''
+- id: 9a0b169e-c6fb-4884-b192-374195d60223
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Orders
+  sourceComponentId: Package\Orders_sql::source.Orders
+  sourceComponentName: source.Orders
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: source
+  sourceTable: Orders
+  sourceColumnName: Status
+  sourceExpression: LEFT(o.Status, 20)
+  targetComponentId: Package\Orders_sql
+  targetComponentName: stage.Orders_stg
+  targetServer: .\SQLSERVER2025
+  targetDatabase: Staging
+  targetSchema: stage
+  targetTable: Orders_stg
+  targetColumnName: Status
+  operationType: SQL_PROC_UPDATE
+  procedureName: stage.usp_stage_load_orders
+  joinDetails: 'LeftOuter: c.CustomerID = o.CustomerID; Inner: s.SourceOrderID = o.OrderID'
+  filterConditions: ''
+- id: f40a606e-8d56-4210-a4d0-d320918da3b1
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Orders
+  sourceComponentId: Package\Orders_sql::source.Customers
+  sourceComponentName: source.Customers
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: source
+  sourceTable: Customers
+  sourceColumnName: CustomerID
+  sourceExpression: CASE WHEN c.CustomerID IS NULL THEN N'Error' ELSE N'Reloaded' END
+  targetComponentId: Package\Orders_sql
+  targetComponentName: stage.Orders_stg
+  targetServer: .\SQLSERVER2025
+  targetDatabase: Staging
+  targetSchema: stage
+  targetTable: Orders_stg
+  targetColumnName: LoadStatus
+  operationType: SQL_PROC_UPDATE
+  procedureName: stage.usp_stage_load_orders
+  joinDetails: 'LeftOuter: c.CustomerID = o.CustomerID; Inner: s.SourceOrderID = o.OrderID'
+  filterConditions: ''
+- id: 18aa92fd-afe6-4161-bd23-7272383c9d44
+  packageId: '{0B3BB49A-C382-47E0-9A08-B4FF93332480}'
+  taskId: Package\Orders
+  sourceComponentId: Package\Orders_sql::source.Customers
+  sourceComponentName: source.Customers
+  sourceServer: .\SQLSERVER2025
+  sourceDatabase: Staging
+  sourceSchema: source
+  sourceTable: Customers
+  sourceColumnName: CustomerID
+  sourceExpression: CASE WHEN c.CustomerID IS NULL THEN N'FK Customer not found in source.Customers' ELSE NULL END
+  targetComponentId: Package\Orders_sql
+  targetComponentName: stage.Orders_stg
+  targetServer: .\SQLSERVER2025
+  targetDatabase: Staging
+  targetSchema: stage
+  targetTable: Orders_stg
+  targetColumnName: ErrorMessage
+  operationType: SQL_PROC_UPDATE
+  procedureName: stage.usp_stage_load_orders
+  joinDetails: 'LeftOuter: c.CustomerID = o.CustomerID; Inner: s.SourceOrderID = o.OrderID'
+  filterConditions: ''
+executionEdges:
+- fromTaskId: Package\Load DW Customers
+  toTaskId: '{6CE5C704-B864-4E9D-A608-1ACE53E51E03}'
+  precedenceConstraintValue: Invokes
+  expression: ''
+- fromTaskId: Package\Start
+  toTaskId: Package\Customers
+  precedenceConstraintValue: Success
+  expression: ''
+- fromTaskId: Package\Start
+  toTaskId: Package\Order Items
+  precedenceConstraintValue: Success
+  expression: ''
+- fromTaskId: Package\Start
+  toTaskId: Package\Orders
+  precedenceConstraintValue: Success
+  expression: ''
+- fromTaskId: Package\Customers
+  toTaskId: Package\Load DW Customers
+  precedenceConstraintValue: Success
+  expression: ''
+dataFlowEdges:
+- fromComponentId: Package\Load Dim Customers\OLE DB Source
+  toComponentId: Package\Load Dim Customers\OLE DB Destination
+  pathRefId: Package\Load Dim Customers.Paths[OLE DB Source Output]
+warnings:
+- Execute SQL task 'Customers' calls stage.usp_stage_load_customers — procedure body will be loaded from SQL Server when a connection is available.
+- Execute SQL task 'Order Items' calls stage.usp_stage_load_orderitems — procedure body will be loaded from SQL Server when a connection is available.
+- Execute SQL task 'Orders' calls stage.usp_stage_load_orders — procedure body will be loaded from SQL Server when a connection is available.
+- Resolved SQL connection from project .conmgr (6 connection manager(s)).

@@ -1,0 +1,27 @@
+flowchart LR
+    n0["OLE DB Source"]
+    n1["DW.Dim_Customers"]
+    n0 -->|DATA FLOW| n1
+    n2["stage.usp_stage_load_customers"]
+    n3["stage.Customers_stg"]
+    n2 -->|INSERT| n3
+    n4["source.Customers"]
+    n4 -->|INSERT| n3
+    n4 -->|UPDATE| n3
+    n3 -->|SELECT| n0
+    n5["stage.usp_stage_load_orderitems"]
+    n6["stage.OrderItems_stg"]
+    n5 -->|INSERT| n6
+    n7["source.OrderItems"]
+    n7 -->|INSERT| n6
+    n8["source.Orders"]
+    n8 -->|INSERT| n6
+    n8 -->|UPDATE| n6
+    n7 -->|UPDATE| n6
+    n9["stage.usp_stage_load_orders"]
+    n10["stage.Orders_stg"]
+    n9 -->|INSERT| n10
+    n8 -->|INSERT| n10
+    n4 -->|INSERT| n10
+    n8 -->|UPDATE| n10
+    n4 -->|UPDATE| n10

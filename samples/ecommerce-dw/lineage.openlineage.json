@@ -1,0 +1,620 @@
+[
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-06-14T06:58:00.809Z",
+    "producer": "https://github.com/okutue/SSIS-Project-Documentation",
+    "schemaURL": "https://openlineage.io/spec/1-0-5/OpenLineage.json",
+    "run": {
+      "runId": "d2747cad-1793-4648-8ad2-2f0bb195546f"
+    },
+    "job": {
+      "namespace": "ssis://DW_Load",
+      "name": "DW_Load.Load Dim Customers"
+    },
+    "inputs": [
+      {
+        "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+        "name": "OLE DB Source"
+      },
+      {
+        "namespace": ".\\SQLSERVER2025",
+        "name": "stage.Customers_stg"
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "sqlserver://.\\SQLSERVER2025/DW",
+        "name": "DW.Dim_Customers",
+        "facets": {
+          "columnLineage": {
+            "_producer": "https://github.com/okutue/SSIS-Project-Documentation",
+            "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/ColumnLineageDatasetFacet.json",
+            "fields": {
+              "SourceCustomerID": {
+                "inputFields": [
+                  {
+                    "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+                    "name": "OLE DB Source",
+                    "field": "SourceCustomerID"
+                  }
+                ]
+              },
+              "CustomerCode": {
+                "inputFields": [
+                  {
+                    "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+                    "name": "OLE DB Source",
+                    "field": "CustomerCode"
+                  }
+                ]
+              },
+              "FirstName": {
+                "inputFields": [
+                  {
+                    "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+                    "name": "OLE DB Source",
+                    "field": "FirstName"
+                  }
+                ]
+              },
+              "LastName": {
+                "inputFields": [
+                  {
+                    "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+                    "name": "OLE DB Source",
+                    "field": "LastName"
+                  }
+                ]
+              },
+              "Email": {
+                "inputFields": [
+                  {
+                    "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+                    "name": "OLE DB Source",
+                    "field": "Email"
+                  }
+                ]
+              },
+              "Phone": {
+                "inputFields": [
+                  {
+                    "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+                    "name": "OLE DB Source",
+                    "field": "Phone"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      {
+        "namespace": ".\\SQLSERVER2025",
+        "name": "OLE DB Source",
+        "facets": {
+          "columnLineage": {
+            "_producer": "https://github.com/okutue/SSIS-Project-Documentation",
+            "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/ColumnLineageDatasetFacet.json",
+            "fields": {
+              "SourceCustomerID": {
+                "inputFields": [
+                  {
+                    "namespace": ".\\SQLSERVER2025",
+                    "name": "stage.Customers_stg",
+                    "field": "SourceCustomerID"
+                  }
+                ]
+              },
+              "CustomerCode": {
+                "inputFields": [
+                  {
+                    "namespace": ".\\SQLSERVER2025",
+                    "name": "stage.Customers_stg",
+                    "field": "CustomerCode"
+                  }
+                ]
+              },
+              "FirstName": {
+                "inputFields": [
+                  {
+                    "namespace": ".\\SQLSERVER2025",
+                    "name": "stage.Customers_stg",
+                    "field": "FirstName"
+                  }
+                ]
+              },
+              "LastName": {
+                "inputFields": [
+                  {
+                    "namespace": ".\\SQLSERVER2025",
+                    "name": "stage.Customers_stg",
+                    "field": "LastName"
+                  }
+                ]
+              },
+              "Email": {
+                "inputFields": [
+                  {
+                    "namespace": ".\\SQLSERVER2025",
+                    "name": "stage.Customers_stg",
+                    "field": "Email"
+                  }
+                ]
+              },
+              "Phone": {
+                "inputFields": [
+                  {
+                    "namespace": ".\\SQLSERVER2025",
+                    "name": "stage.Customers_stg",
+                    "field": "Phone"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    ]
+  },
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-06-14T06:58:00.809Z",
+    "producer": "https://github.com/okutue/SSIS-Project-Documentation",
+    "schemaURL": "https://openlineage.io/spec/1-0-5/OpenLineage.json",
+    "run": {
+      "runId": "5bf03034-9f51-48bf-956c-73aef2a6a507"
+    },
+    "job": {
+      "namespace": "ssis://Stage",
+      "name": "Stage.Start"
+    },
+    "inputs": [
+      {
+        "namespace": ".\\SQLSERVER2025",
+        "name": "Start"
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": ".\\SQLSERVER2025",
+        "name": "Start",
+        "facets": {
+          "columnLineage": {
+            "_producer": "https://github.com/okutue/SSIS-Project-Documentation",
+            "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/ColumnLineageDatasetFacet.json",
+            "fields": {}
+          }
+        }
+      }
+    ]
+  },
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-06-14T06:58:00.809Z",
+    "producer": "https://github.com/okutue/SSIS-Project-Documentation",
+    "schemaURL": "https://openlineage.io/spec/1-0-5/OpenLineage.json",
+    "run": {
+      "runId": "3d0bb5cc-5091-47b9-843b-2d66f0fa6e44"
+    },
+    "job": {
+      "namespace": "ssis://Stage",
+      "name": "Stage.Customers"
+    },
+    "inputs": [
+      {
+        "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+        "name": "stage.usp_stage_load_customers"
+      },
+      {
+        "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+        "name": "source.Customers"
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+        "name": "stage.Customers_stg",
+        "facets": {
+          "columnLineage": {
+            "_producer": "https://github.com/okutue/SSIS-Project-Documentation",
+            "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/ColumnLineageDatasetFacet.json",
+            "fields": {
+              "LoadBatchID": {
+                "inputFields": []
+              },
+              "LoadDate": {
+                "inputFields": []
+              },
+              "SourceCustomerID": {
+                "inputFields": [
+                  {
+                    "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+                    "name": "source.Customers",
+                    "field": "CustomerID"
+                  }
+                ]
+              },
+              "CustomerCode": {
+                "inputFields": [
+                  {
+                    "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+                    "name": "source.Customers",
+                    "field": "CustomerCode"
+                  },
+                  {
+                    "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+                    "name": "source.Customers",
+                    "field": "CustomerCode"
+                  }
+                ]
+              },
+              "FirstName": {
+                "inputFields": [
+                  {
+                    "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+                    "name": "source.Customers",
+                    "field": "FirstName"
+                  },
+                  {
+                    "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+                    "name": "source.Customers",
+                    "field": "FirstName"
+                  }
+                ]
+              },
+              "LastName": {
+                "inputFields": [
+                  {
+                    "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+                    "name": "source.Customers",
+                    "field": "LastName"
+                  },
+                  {
+                    "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+                    "name": "source.Customers",
+                    "field": "LastName"
+                  }
+                ]
+              },
+              "Email": {
+                "inputFields": [
+                  {
+                    "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+                    "name": "source.Customers",
+                    "field": "Email"
+                  },
+                  {
+                    "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+                    "name": "source.Customers",
+                    "field": "Email"
+                  }
+                ]
+              },
+              "Phone": {
+                "inputFields": [
+                  {
+                    "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+                    "name": "source.Customers",
+                    "field": "Phone"
+                  },
+                  {
+                    "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+                    "name": "source.Customers",
+                    "field": "Phone"
+                  }
+                ]
+              },
+              "LoadStatus": {
+                "inputFields": []
+              }
+            }
+          }
+        }
+      }
+    ]
+  },
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-06-14T06:58:00.809Z",
+    "producer": "https://github.com/okutue/SSIS-Project-Documentation",
+    "schemaURL": "https://openlineage.io/spec/1-0-5/OpenLineage.json",
+    "run": {
+      "runId": "d622af51-783e-4617-b151-0fa94e973b90"
+    },
+    "job": {
+      "namespace": "ssis://Stage",
+      "name": "Stage.Order Items"
+    },
+    "inputs": [
+      {
+        "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+        "name": "stage.usp_stage_load_orderitems"
+      },
+      {
+        "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+        "name": "source.OrderItems"
+      },
+      {
+        "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+        "name": "source.Orders"
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+        "name": "stage.OrderItems_stg",
+        "facets": {
+          "columnLineage": {
+            "_producer": "https://github.com/okutue/SSIS-Project-Documentation",
+            "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/ColumnLineageDatasetFacet.json",
+            "fields": {
+              "LoadBatchID": {
+                "inputFields": []
+              },
+              "LoadDate": {
+                "inputFields": []
+              },
+              "SourceOrderItemID": {
+                "inputFields": [
+                  {
+                    "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+                    "name": "source.OrderItems",
+                    "field": "OrderItemID"
+                  }
+                ]
+              },
+              "SourceOrderID": {
+                "inputFields": [
+                  {
+                    "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+                    "name": "source.Orders",
+                    "field": "OrderID"
+                  },
+                  {
+                    "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+                    "name": "source.OrderItems",
+                    "field": "OrderID"
+                  },
+                  {
+                    "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+                    "name": "source.Orders",
+                    "field": "OrderID"
+                  },
+                  {
+                    "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+                    "name": "source.OrderItems",
+                    "field": "OrderID"
+                  }
+                ]
+              },
+              "ProductCode": {
+                "inputFields": [
+                  {
+                    "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+                    "name": "source.OrderItems",
+                    "field": "ProductCode"
+                  },
+                  {
+                    "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+                    "name": "source.OrderItems",
+                    "field": "ProductCode"
+                  }
+                ]
+              },
+              "Quantity": {
+                "inputFields": [
+                  {
+                    "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+                    "name": "source.OrderItems",
+                    "field": "Quantity"
+                  },
+                  {
+                    "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+                    "name": "source.OrderItems",
+                    "field": "Quantity"
+                  }
+                ]
+              },
+              "UnitPrice": {
+                "inputFields": [
+                  {
+                    "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+                    "name": "source.OrderItems",
+                    "field": "UnitPrice"
+                  },
+                  {
+                    "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+                    "name": "source.OrderItems",
+                    "field": "UnitPrice"
+                  }
+                ]
+              },
+              "LineTotal": {
+                "inputFields": [
+                  {
+                    "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+                    "name": "source.OrderItems",
+                    "field": "LineTotal"
+                  },
+                  {
+                    "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+                    "name": "source.OrderItems",
+                    "field": "LineTotal"
+                  }
+                ]
+              },
+              "LoadStatus": {
+                "inputFields": [
+                  {
+                    "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+                    "name": "source.Orders",
+                    "field": "OrderID"
+                  },
+                  {
+                    "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+                    "name": "source.Orders",
+                    "field": "OrderID"
+                  }
+                ]
+              },
+              "ErrorMessage": {
+                "inputFields": [
+                  {
+                    "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+                    "name": "source.Orders",
+                    "field": "OrderID"
+                  },
+                  {
+                    "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+                    "name": "source.Orders",
+                    "field": "OrderID"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    ]
+  },
+  {
+    "eventType": "COMPLETE",
+    "eventTime": "2026-06-14T06:58:00.809Z",
+    "producer": "https://github.com/okutue/SSIS-Project-Documentation",
+    "schemaURL": "https://openlineage.io/spec/1-0-5/OpenLineage.json",
+    "run": {
+      "runId": "0529512e-6ec4-4951-a61a-4ab0776c5f3b"
+    },
+    "job": {
+      "namespace": "ssis://Stage",
+      "name": "Stage.Orders"
+    },
+    "inputs": [
+      {
+        "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+        "name": "stage.usp_stage_load_orders"
+      },
+      {
+        "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+        "name": "source.Orders"
+      },
+      {
+        "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+        "name": "source.Customers"
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+        "name": "stage.Orders_stg",
+        "facets": {
+          "columnLineage": {
+            "_producer": "https://github.com/okutue/SSIS-Project-Documentation",
+            "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/ColumnLineageDatasetFacet.json",
+            "fields": {
+              "LoadBatchID": {
+                "inputFields": []
+              },
+              "LoadDate": {
+                "inputFields": []
+              },
+              "SourceOrderID": {
+                "inputFields": [
+                  {
+                    "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+                    "name": "source.Orders",
+                    "field": "OrderID"
+                  }
+                ]
+              },
+              "SourceCustomerID": {
+                "inputFields": [
+                  {
+                    "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+                    "name": "source.Orders",
+                    "field": "CustomerID"
+                  },
+                  {
+                    "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+                    "name": "source.Orders",
+                    "field": "CustomerID"
+                  }
+                ]
+              },
+              "OrderDate": {
+                "inputFields": [
+                  {
+                    "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+                    "name": "source.Orders",
+                    "field": "OrderDate"
+                  },
+                  {
+                    "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+                    "name": "source.Orders",
+                    "field": "OrderDate"
+                  }
+                ]
+              },
+              "TotalAmount": {
+                "inputFields": [
+                  {
+                    "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+                    "name": "source.Orders",
+                    "field": "TotalAmount"
+                  },
+                  {
+                    "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+                    "name": "source.Orders",
+                    "field": "TotalAmount"
+                  }
+                ]
+              },
+              "Status": {
+                "inputFields": [
+                  {
+                    "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+                    "name": "source.Orders",
+                    "field": "Status"
+                  },
+                  {
+                    "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+                    "name": "source.Orders",
+                    "field": "Status"
+                  }
+                ]
+              },
+              "LoadStatus": {
+                "inputFields": [
+                  {
+                    "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+                    "name": "source.Customers",
+                    "field": "CustomerID"
+                  },
+                  {
+                    "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+                    "name": "source.Customers",
+                    "field": "CustomerID"
+                  }
+                ]
+              },
+              "ErrorMessage": {
+                "inputFields": [
+                  {
+                    "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+                    "name": "source.Customers",
+                    "field": "CustomerID"
+                  },
+                  {
+                    "namespace": "sqlserver://.\\SQLSERVER2025/Staging",
+                    "name": "source.Customers",
+                    "field": "CustomerID"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+]

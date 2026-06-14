@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SSIS Lineage Report</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #0f172a; color: #f8fafc; padding: 20px; }
+        h1, h2 { color: #38bdf8; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; background-color: #1e293b; border-radius: 8px; overflow: hidden; }
+        th, td { padding: 12px 16px; text-align: left; border-bottom: 1px solid #334155; }
+        th { background-color: #334155; color: #38bdf8; }
+        tr:hover { background-color: #475569; }
+        .badge { background-color: #0284c7; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.85em; }
+        .summary-grid { display: grid; grid-template-columns: repeat(5, minmax(120px, 1fr)); gap: 12px; margin: 20px 0; }
+        .summary-grid div { background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 14px; }
+        .summary-grid strong { display: block; font-size: 28px; color: #f8fafc; }
+        .summary-grid span { color: #94a3b8; font-size: 13px; font-weight: 700; }
+        code { color: #bae6fd; white-space: pre-wrap; overflow-wrap: anywhere; }
+    </style>
+</head>
+<body>
+    <h1>SSIS Project Lineage Documentation</h1>
+    <p>Generated on: 2026-06-14 06:58:00</p>
+    <h2>Packages Included</h2>
+    <ul>
+        <li><strong>Stage</strong> (GUID: {0B3BB49A-C382-47E0-9A08-B4FF93332480})</li>
+        <li><strong>DW_Load</strong> (GUID: {6CE5C704-B864-4E9D-A608-1ACE53E51E03})</li>
+    </ul>
+    <h2>Run Summary</h2>
+    <div class="summary-grid">
+        <div><strong>2</strong><span>Packages</span></div>
+        <div><strong>6</strong><span>Tasks</span></div>
+        <div><strong>6</strong><span>Components</span></div>
+        <div><strong>1</strong><span>Data Paths</span></div>
+        <div><strong>61</strong><span>Column Mappings</span></div>
+    </div>
+    <h2>Tasks</h2>
+    <table>
+        <thead><tr><th>Package</th><th>Task</th><th>Type</th></tr></thead>
+        <tbody>
+            <tr><td>Stage</td><td>Customers</td><td><code>Microsoft.ExecuteSQLTask</code></td></tr>
+            <tr><td>Stage</td><td>Load DW Customers</td><td><code>Microsoft.ExecutePackageTask</code></td></tr>
+            <tr><td>DW_Load</td><td>Load Dim Customers</td><td><code>Microsoft.Pipeline</code></td></tr>
+            <tr><td>Stage</td><td>Order Items</td><td><code>Microsoft.ExecuteSQLTask</code></td></tr>
+            <tr><td>Stage</td><td>Orders</td><td><code>Microsoft.ExecuteSQLTask</code></td></tr>
+            <tr><td>Stage</td><td>Start</td><td><code>Microsoft.ExecuteSQLTask</code></td></tr>
+        </tbody>
+    </table>
+    <h2>Data Flow Components</h2>
+    <table>
+        <thead><tr><th>Package</th><th>Task</th><th>Component</th><th>Type</th><th>Connection</th><th>SQL / Table</th></tr></thead>
+        <tbody>
+            <tr>
+                <td>Stage</td>
+                <td>Customers</td>
+                <td>Customers</td>
+                <td><code>Execute SQL Task</code></td>
+                <td><code>{AF2C2600-2DCE-498A-AC64-A7FDC44BDB39}</code></td>
+                <td><code>stage.usp_stage_load_customers</code></td>
+            </tr>
+            <tr>
+                <td>DW_Load</td>
+                <td>Load Dim Customers</td>
+                <td>OLE DB Destination</td>
+                <td><code>Microsoft.OLEDBDestination</code></td>
+                <td><code>Project.ConnectionManagers[DW]</code></td>
+                <td><code>[DW].[Dim_Customers]</code></td>
+            </tr>
+            <tr>
+                <td>DW_Load</td>
+                <td>Load Dim Customers</td>
+                <td>OLE DB Source</td>
+                <td><code>Microsoft.OLEDBSource</code></td>
+                <td><code>Project.ConnectionManagers[Staging]</code></td>
+                <td><code>[stage].[usp_Get_LoadCustomers]</code></td>
+            </tr>
+            <tr>
+                <td>Stage</td>
+                <td>Order Items</td>
+                <td>Order Items</td>
+                <td><code>Execute SQL Task</code></td>
+                <td><code>{AF2C2600-2DCE-498A-AC64-A7FDC44BDB39}</code></td>
+                <td><code>stage.usp_stage_load_orderitems</code></td>
+            </tr>
+            <tr>
+                <td>Stage</td>
+                <td>Orders</td>
+                <td>Orders</td>
+                <td><code>Execute SQL Task</code></td>
+                <td><code>{AF2C2600-2DCE-498A-AC64-A7FDC44BDB39}</code></td>
+                <td><code>stage.usp_stage_load_orders</code></td>
+            </tr>
+            <tr>
+                <td>Stage</td>
+                <td>Start</td>
+                <td>Start</td>
+                <td><code>Execute SQL Task</code></td>
+                <td><code>{AF2C2600-2DCE-498A-AC64-A7FDC44BDB39}</code></td>
+                <td><code>SELECT 1</code></td>
+            </tr>
+        </tbody>
+    </table>
+    <h2>Data Flow Paths</h2>
+    <table>
+        <thead><tr><th>From Component</th><th>To Component</th><th>Path</th></tr></thead>
+        <tbody>
+            <tr><td><code>Package\Load Dim Customers\OLE DB Source</code></td><td><code>Package\Load Dim Customers\OLE DB Destination</code></td><td><code>Package\Load Dim Customers.Paths[OLE DB Source Output]</code></td></tr>
+        </tbody>
+    </table>
+    <h2>Column Lineage Mappings</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Package</th>
+                <th>Task</th>
+                <th>Source Component</th>
+                <th>Source Column</th>
+                <th>Destination Component</th>
+                <th>Destination Column</th>
+                <th>Operation</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>DW_Load</td>
+                <td>Load Dim Customers</td>
+                <td>OLE DB Source</td>
+                <td><code>SourceCustomerID</code></td>
+                <td>DW.Dim_Customers</td>
+                <td><code>SourceCustomerID</code></td>
+                <td><span class="badge">XML_FALLBACK</span></td>
+            </tr>
+            <tr>
+                <td>DW_Load</td>
+                <td>Load Dim Customers</td>
+                <td>OLE DB Source</td>
+                <td><code>CustomerCode</code></td>
+                <td>DW.Dim_Customers</td>
+                <td><code>CustomerCode</code></td>
+                <td><span class="badge">XML_FALLBACK</span></td>
+            </tr>
+            <tr>
+                <td>DW_Load</td>
+                <td>Load Dim Customers</td>
+                <td>OLE DB Source</td>
+                <td><code>FirstName</code></td>
+                <td>DW.Dim_Customers</td>
+                <td><code>FirstName</code></td>
+                <td><span class="badge">XML_FALLBACK</span></td>
+            </tr>
+            <tr>
+                <td>DW_Load</td>
+                <td>Load Dim Customers</td>
+                <td>OLE DB Source</td>
+                <td><code>LastName</code></td>
+                <td>DW.Dim_Customers</td>
+                <td><code>LastName</code></td>
+                <td><span class="badge">XML_FALLBACK</span></td>
+            </tr>
+            <tr>
+                <td>DW_Load</td>
+                <td>Load Dim Customers</td>
+                <td>OLE DB Source</td>
+                <td><code>Email</code></td>
+                <td>DW.Dim_Customers</td>
+                <td><code>Email</code></td>
+                <td><span class="badge">XML_FALLBACK</span></td>
+            </tr>
+            <tr>
+                <td>DW_Load</td>
+                <td>Load Dim Customers</td>
+                <td>OLE DB Source</td>
+                <td><code>Phone</code></td>
+                <td>DW.Dim_Customers</td>
+                <td><code>Phone</code></td>
+                <td><span class="badge">XML_FALLBACK</span></td>
+            </tr>
+            <tr>
+                <td>Stage</td>
+                <td>Start</td>
+                <td>Start</td>
+                <td><code></code></td>
+                <td>Start</td>
+                <td><code></code></td>
+                <td><span class="badge">SELECT</span></td>
+            </tr>
+            <tr>
+                <td>Stage</td>
+                <td>Customers</td>
+                <td>usp_stage_load_customers</td>
+                <td><code></code></td>
+                <td>stage.Customers_stg</td>
+                <td><code>LoadBatchID</code></td>
+                <td><span class="badge">SQL_PROC_INSERT</span></td>
+            </tr>
+            <tr>
+                <td>Stage</td>
+                <td>Customers</td>
+                <td>usp_stage_load_customers</td>
+                <td><code></code></td>
+                <td>stage.Customers_stg</td>
+                <td><code>LoadDate</code></td>
+                <td><span class="badge">SQL_PROC_INSERT</span></td>
+            </tr>
+            <tr>
+                <td>Stage</td>
+                <td>Customers</td>
+                <td>source.Customers</td>
+                <td><code>CustomerID</code></td>
+                <td>stage.Customers_stg</td>
+                <td><code>SourceCustomerID</code></td>
+                <td><span class="badge">SQL_PROC_INSERT</span></td>
+            </tr>
+            <tr>
+                <td>Stage</td>
+                <td>Customers</td>
+                <td>source.Customers</td>
+                <td><code>CustomerCode</code></td>
+                <td>stage.Customers_stg</td>
+                <td><code>CustomerCode</code></td>
+                <td><span class="badge">SQL_PROC_INSERT</span></td>
+            </tr>
+            <tr>
+                <td>Stage</td>
+                <td>Customers</td>
+                <td>source.Customers</td>
+                <td><code>FirstName</code></td>
+                <td>stage.Customers_stg</td>
+                <td><code>FirstName</code></td>
+                <td><span class="badge">SQL_PROC_INSERT</span></td>
+            </tr>
+            <tr>
+                <td>Stage</td>
+                <td>Customers</td>
+                <td>source.Customers</td>
+                <td><code>LastName</code></td>
+                <td>stage.Customers_stg</td>
+                <td><code>LastName</code></td>
+                <td><span class="badge">SQL_PROC_INSERT</span></td>
+            </tr>
+            <tr>
+                <td>Stage</td>
+                <td>Customers</td>
+                <td>source.Customers</td>
+                <td><code>Email</code></td>
+                <td>stage.Customers_stg</td>
+                <td><code>Email</code></td>
+                <td><span class="badge">SQL_PROC_INSERT</span></td>
+            </tr>
+            <tr>
+                <td>Stage</td>
+                <td>Customers</td>
+                <td>source.Customers</td>
+                <td><code>Phone</code></td>
+                <td>stage.Customers_stg</td>
+                <td><code>Phone</code></td>
+                <td><span class="badge">SQL_PROC_INSERT</span></td>
+            </tr>
+            <tr>
+                <td>Stage</td>
+                <td>Customers</td>
+                <td>usp_stage_load_customers</td>
+                <td><code></code></td>
+                <td>stage.Customers_stg</td>
+                <td><code>LoadStatus</code></td>
+                <td><span class="badge">SQL_PROC_INSERT</span></td>
+            </tr>
+            <tr>
+                <td>Stage</td>
+                <td>Customers</td>
+                <td>source.Customers</td>
+                <td><code>CustomerCode</code></td>
+                <td>stage.Customers_stg</td>
+                <td><code>CustomerCode</code></td>
+                <td><span class="badge">SQL_PROC_UPDATE</span></td>
+            </tr>
+            <tr>
+                <td>Stage</td>
+                <td>Customers</td>
+                <td>source.Customers</td>
+                <td><code>FirstName</code></td>
+                <td>stage.Customers_stg</td>
+                <td><code>FirstName</code></td>
+                <td><span class="badge">SQL_PROC_UPDATE</span></td>
+            </tr>
+            <tr>
+                <td>Stage</td>
+                <td>Customers</td>
+                <td>source.Customers</td>
+                <td><code>LastName</code></td>
+                <td>stage.Customers_stg</td>
+                <td><code>LastName</code></td>
+                <td><span class="badge">SQL_PROC_UPDATE</span></td>
+            </tr>
+            <tr>
+                <td>Stage</td>
+                <td>Customers</td>
+                <td>source.Customers</td>
+                <td><code>Email</code></td>
+                <td>stage.Customers_stg</td>
+                <td><code>Email</code></td>
+                <td><span class="badge">SQL_PROC_UPDATE</span></td>
+            </tr>
+            <tr>
+                <td>Stage</td>
+                <td>Customers</td>
+                <td>source.Customers</td>
+                <td><code>Phone</code></td>
+                <td>stage.Customers_stg</td>
+                <td><code>Phone</code></td>
+                <td><span class="badge">SQL_PROC_UPDATE</span></td>
+            </tr>
+            <tr>
+                <td>DW_Load</td>
+                <td>Load Dim Customers</td>
+                <td>stage.Customers_stg</td>
+                <td><code>SourceCustomerID</code></td>
+                <td>OLE DB Source</td>
+                <td><code>SourceCustomerID</code></td>
+                <td><span class="badge">SQL_PROC_SELECT</span></td>
+            </tr>
+            <tr>
+                <td>DW_Load</td>
+                <td>Load Dim Customers</td>
+                <td>stage.Customers_stg</td>
+                <td><code>CustomerCode</code></td>
+                <td>OLE DB Source</td>
+                <td><code>CustomerCode</code></td>
+                <td><span class="badge">SQL_PROC_SELECT</span></td>
+            </tr>
+            <tr>
+                <td>DW_Load</td>
+                <td>Load Dim Customers</td>
+                <td>stage.Customers_stg</td>
+                <td><code>FirstName</code></td>
+                <td>OLE DB Source</td>
+                <td><code>FirstName</code></td>
+                <td><span class="badge">SQL_PROC_SELECT</span></td>
+            </tr>
+            <tr>
+                <td>DW_Load</td>
+                <td>Load Dim Customers</td>
+                <td>stage.Customers_stg</td>
+                <td><code>LastName</code></td>
+                <td>OLE DB Source</td>
+                <td><code>LastName</code></td>
+                <td><span class="badge">SQL_PROC_SELECT</span></td>
+            </tr>
+            <tr>
+                <td>DW_Load</td>
+                <td>Load Dim Customers</td>
+                <td>stage.Customers_stg</td>
+                <td><code>Email</code></td>
+                <td>OLE DB Source</td>
+                <td><code>Email</code></td>
+                <td><span class="badge">SQL_PROC_SELECT</span></td>
+            </tr>
+            <tr>
+                <td>DW_Load</td>
+                <td>Load Dim Customers</td>
+                <td>stage.Customers_stg</td>
+                <td><code>Phone</code></td>
+                <td>OLE DB Source</td>
+                <td><code>Phone</code></td>
+                <td><span class="badge">SQL_PROC_SELECT</span></td>
+            </tr>
+            <tr>
+                <td>Stage</td>
+                <td>Order Items</td>
+                <td>usp_stage_load_orderitems</td>
+                <td><code></code></td>
+                <td>stage.OrderItems_stg</td>
+                <td><code>LoadBatchID</code></td>
+                <td><span class="badge">SQL_PROC_INSERT</span></td>
+            </tr>
+            <tr>
+                <td>Stage</td>
+                <td>Order Items</td>
+                <td>usp_stage_load_orderitems</td>
+                <td><code></code></td>
+                <td>stage.OrderItems_stg</td>
+                <td><code>LoadDate</code></td>
+                <td><span class="badge">SQL_PROC_INSERT</span></td>
+            </tr>
+            <tr>
+                <td>Stage</td>
+                <td>Order Items</td>
+                <td>source.OrderItems</td>
+                <td><code>OrderItemID</code></td>
+                <td>stage.OrderItems_stg</td>
+                <td><code>SourceOrderItemID</code></td>
+                <td><span class="badge">SQL_PROC_INSERT</span></td>
+            </tr>
+            <tr>
+                <td>Stage</td>
+                <td>Order Items</td>
+                <td>source.Orders</td>
+                <td><code>OrderID</code></td>
+                <td>stage.OrderItems_stg</td>
+                <td><code>SourceOrderID</code></td>
+                <td><span class="badge">SQL_PROC_INSERT</span></td>
+            </tr>
+            <tr>
+                <td>Stage</td>
+                <td>Order Items</td>
+                <td>source.OrderItems</td>
+                <td><code>OrderID</code></td>
+                <td>stage.OrderItems_stg</td>
+                <td><code>SourceOrderID</code></td>
+                <td><span class="badge">SQL_PROC_INSERT</span></td>
+            </tr>
+            <tr>
+                <td>Stage</td>
+                <td>Order Items</td>
+                <td>source.OrderItems</td>
+                <td><code>ProductCode</code></td>
+                <td>stage.OrderItems_stg</td>
+                <td><code>ProductCode</code></td>
+                <td><span class="badge">SQL_PROC_INSERT</span></td>
+            </tr>
+            <tr>
+                <td>Stage</td>
+                <td>Order Items</td>
+                <td>source.OrderItems</td>
+                <td><code>Quantity</code></td>
+                <td>stage.OrderItems_stg</td>
+                <td><code>Quantity</code></td>
+                <td><span class="badge">SQL_PROC_INSERT</span></td>
+            </tr>
+            <tr>
+                <td>Stage</td>
+                <td>Order Items</td>
+                <td>source.OrderItems</td>
+                <td><code>UnitPrice</code></td>
+                <td>stage.OrderItems_stg</td>
+                <td><code>UnitPrice</code></td>
+                <td><span class="badge">SQL_PROC_INSERT</span></td>
+            </tr>
+            <tr>
+                <td>Stage</td>
+                <td>Order Items</td>
+                <td>source.OrderItems</td>
+                <td><code>LineTotal</code></td>
+                <td>stage.OrderItems_stg</td>
+                <td><code>LineTotal</code></td>
+                <td><span class="badge">SQL_PROC_INSERT</span></td>
+            </tr>
+            <tr>
+                <td>Stage</td>
+                <td>Order Items</td>
+                <td>source.Orders</td>
+                <td><code>OrderID</code></td>
+                <td>stage.OrderItems_stg</td>
+                <td><code>LoadStatus</code></td>
+                <td><span class="badge">SQL_PROC_INSERT</span></td>
+            </tr>
+            <tr>
+                <td>Stage</td>
+                <td>Order Items</td>
+                <td>source.Orders</td>
+                <td><code>OrderID</code></td>
+                <td>stage.OrderItems_stg</td>
+                <td><code>ErrorMessage</code></td>
+                <td><span class="badge">SQL_PROC_INSERT</span></td>
+            </tr>
+            <tr>
+                <td>Stage</td>
+                <td>Order Items</td>
+                <td>source.Orders</td>
+                <td><code>OrderID</code></td>
+                <td>stage.OrderItems_stg</td>
+                <td><code>SourceOrderID</code></td>
+                <td><span class="badge">SQL_PROC_UPDATE</span></td>
+            </tr>
+            <tr>
+                <td>Stage</td>
+                <td>Order Items</td>
+                <td>source.OrderItems</td>
+                <td><code>OrderID</code></td>
+                <td>stage.OrderItems_stg</td>
+                <td><code>SourceOrderID</code></td>
+                <td><span class="badge">SQL_PROC_UPDATE</span></td>
+            </tr>
+            <tr>
+                <td>Stage</td>
+                <td>Order Items</td>
+                <td>source.OrderItems</td>
+                <td><code>ProductCode</code></td>
+                <td>stage.OrderItems_stg</td>
+                <td><code>ProductCode</code></td>
+                <td><span class="badge">SQL_PROC_UPDATE</span></td>
+            </tr>
+            <tr>
+                <td>Stage</td>
+                <td>Order Items</td>
+                <td>source.OrderItems</td>
+                <td><code>Quantity</code></td>
+                <td>stage.OrderItems_stg</td>
+                <td><code>Quantity</code></td>
+                <td><span class="badge">SQL_PROC_UPDATE</span></td>
+            </tr>
+            <tr>
+                <td>Stage</td>
+                <td>Order Items</td>
+                <td>source.OrderItems</td>
+                <td><code>UnitPrice</code></td>
+                <td>stage.OrderItems_stg</td>
+                <td><code>UnitPrice</code></td>
+                <td><span class="badge">SQL_PROC_UPDATE</span></td>
+            </tr>
+            <tr>
+                <td>Stage</td>
+                <td>Order Items</td>
+                <td>source.OrderItems</td>
+                <td><code>LineTotal</code></td>
+                <td>stage.OrderItems_stg</td>
+                <td><code>LineTotal</code></td>
+                <td><span class="badge">SQL_PROC_UPDATE</span></td>
+            </tr>
+            <tr>
+                <td>Stage</td>
+                <td>Order Items</td>
+                <td>source.Orders</td>
+                <td><code>OrderID</code></td>
+                <td>stage.OrderItems_stg</td>
+                <td><code>LoadStatus</code></td>
+                <td><span class="badge">SQL_PROC_UPDATE</span></td>
+            </tr>
+            <tr>
+                <td>Stage</td>
+                <td>Order Items</td>
+                <td>source.Orders</td>
+                <td><code>OrderID</code></td>
+                <td>stage.OrderItems_stg</td>
+                <td><code>ErrorMessage</code></td>
+                <td><span class="badge">SQL_PROC_UPDATE</span></td>
+            </tr>
+            <tr>
+                <td>Stage</td>
+                <td>Orders</td>
+                <td>usp_stage_load_orders</td>
+                <td><code></code></td>
+                <td>stage.Orders_stg</td>
+                <td><code>LoadBatchID</code></td>
+                <td><span class="badge">SQL_PROC_INSERT</span></td>
+            </tr>
+            <tr>
+                <td>Stage</td>
+                <td>Orders</td>
+                <td>usp_stage_load_orders</td>
+                <td><code></code></td>
+                <td>stage.Orders_stg</td>
+                <td><code>LoadDate</code></td>
+                <td><span class="badge">SQL_PROC_INSERT</span></td>
+            </tr>
+            <tr>
+                <td>Stage</td>
+                <td>Orders</td>
+                <td>source.Orders</td>
+                <td><code>OrderID</code></td>
+                <td>stage.Orders_stg</td>
+                <td><code>SourceOrderID</code></td>
+                <td><span class="badge">SQL_PROC_INSERT</span></td>
+            </tr>
+            <tr>
+                <td>Stage</td>
+                <td>Orders</td>
+                <td>source.Orders</td>
+                <td><code>CustomerID</code></td>
+                <td>stage.Orders_stg</td>
+                <td><code>SourceCustomerID</code></td>
+                <td><span class="badge">SQL_PROC_INSERT</span></td>
+            </tr>
+            <tr>
+                <td>Stage</td>
+                <td>Orders</td>
+                <td>source.Orders</td>
+                <td><code>OrderDate</code></td>
+                <td>stage.Orders_stg</td>
+                <td><code>OrderDate</code></td>
+                <td><span class="badge">SQL_PROC_INSERT</span></td>
+            </tr>
+            <tr>
+                <td>Stage</td>
+                <td>Orders</td>
+                <td>source.Orders</td>
+                <td><code>TotalAmount</code></td>
+                <td>stage.Orders_stg</td>
+                <td><code>TotalAmount</code></td>
+                <td><span class="badge">SQL_PROC_INSERT</span></td>
+            </tr>
+            <tr>
+                <td>Stage</td>
+                <td>Orders</td>
+                <td>source.Orders</td>
+                <td><code>Status</code></td>
+                <td>stage.Orders_stg</td>
+                <td><code>Status</code></td>
+                <td><span class="badge">SQL_PROC_INSERT</span></td>
+            </tr>
+            <tr>
+                <td>Stage</td>
+                <td>Orders</td>
+                <td>source.Customers</td>
+                <td><code>CustomerID</code></td>
+                <td>stage.Orders_stg</td>
+                <td><code>LoadStatus</code></td>
+                <td><span class="badge">SQL_PROC_INSERT</span></td>
+            </tr>
+            <tr>
+                <td>Stage</td>
+                <td>Orders</td>
+                <td>source.Customers</td>
+                <td><code>CustomerID</code></td>
+                <td>stage.Orders_stg</td>
+                <td><code>ErrorMessage</code></td>
+                <td><span class="badge">SQL_PROC_INSERT</span></td>
+            </tr>
+            <tr>
+                <td>Stage</td>
+                <td>Orders</td>
+                <td>source.Orders</td>
+                <td><code>CustomerID</code></td>
+                <td>stage.Orders_stg</td>
+                <td><code>SourceCustomerID</code></td>
+                <td><span class="badge">SQL_PROC_UPDATE</span></td>
+            </tr>
+            <tr>
+                <td>Stage</td>
+                <td>Orders</td>
+                <td>source.Orders</td>
+                <td><code>OrderDate</code></td>
+                <td>stage.Orders_stg</td>
+                <td><code>OrderDate</code></td>
+                <td><span class="badge">SQL_PROC_UPDATE</span></td>
+            </tr>
+            <tr>
+                <td>Stage</td>
+                <td>Orders</td>
+                <td>source.Orders</td>
+                <td><code>TotalAmount</code></td>
+                <td>stage.Orders_stg</td>
+                <td><code>TotalAmount</code></td>
+                <td><span class="badge">SQL_PROC_UPDATE</span></td>
+            </tr>
+            <tr>
+                <td>Stage</td>
+                <td>Orders</td>
+                <td>source.Orders</td>
+                <td><code>Status</code></td>
+                <td>stage.Orders_stg</td>
+                <td><code>Status</code></td>
+                <td><span class="badge">SQL_PROC_UPDATE</span></td>
+            </tr>
+            <tr>
+                <td>Stage</td>
+                <td>Orders</td>
+                <td>source.Customers</td>
+                <td><code>CustomerID</code></td>
+                <td>stage.Orders_stg</td>
+                <td><code>LoadStatus</code></td>
+                <td><span class="badge">SQL_PROC_UPDATE</span></td>
+            </tr>
+            <tr>
+                <td>Stage</td>
+                <td>Orders</td>
+                <td>source.Customers</td>
+                <td><code>CustomerID</code></td>
+                <td>stage.Orders_stg</td>
+                <td><code>ErrorMessage</code></td>
+                <td><span class="badge">SQL_PROC_UPDATE</span></td>
+            </tr>
+        </tbody>
+    </table>
+</body>
+</html>

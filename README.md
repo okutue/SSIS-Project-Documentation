@@ -12,8 +12,8 @@ Key UI features: interactive data-flow diagram (object and column views, entry-p
 
 CI integration: the CLI `diff` command compares two scans and fails the build on **lineage drift** — see [`docs/CI.md`](docs/CI.md).
 
-![alt text](docs/ssis-lineage-diagram-objects.png)
-![alt text](docs/ssis-lineage-diagram-columns.png)
+![Object / data-flow diagram — packages, tasks, and components with the entry package highlighted](docs/ssis-lineage-diagram-objects.png)
+![Column-level lineage diagram — source-to-target column mappings](docs/ssis-lineage-diagram-columns.png)
 
 ## Install (from source — recommended)
 

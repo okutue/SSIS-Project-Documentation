@@ -4,6 +4,9 @@ Scan SQL Server Integration Services (SSIS) projects and explore, trace, and
 document column-level data lineage without leaving VS Code — including AI-agent
 access to your lineage.
 
+![Object / data-flow diagram — packages, tasks, and components with the entry package highlighted](https://raw.githubusercontent.com/okutue/SSIS-Project-Documentation/main/docs/ssis-lineage-diagram-objects.png)
+![Column-level lineage diagram — source-to-target column mappings](https://raw.githubusercontent.com/okutue/SSIS-Project-Documentation/main/docs/ssis-lineage-diagram-columns.png)
+
 ## Features
 
 - **Scan a project** — point at a `.dtproj`, pick the entry package, and get the full

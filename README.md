@@ -12,6 +12,9 @@ Key UI features: interactive data-flow diagram (object and column views, entry-p
 
 CI integration: the CLI `diff` command compares two scans and fails the build on **lineage drift** — see [`docs/CI.md`](docs/CI.md).
 
+![alt text](docs/ssis-lineage-diagram-objects.png)
+![alt text](docs/ssis-lineage-diagram-columns.png)
+
 ## Install (from source — recommended)
 
 The app builds against the Microsoft SSIS runtime assemblies on your machine, so running from source is the supported install:
